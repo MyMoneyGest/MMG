@@ -18,16 +18,13 @@ import { auth } from '../../services/firebaseConfig';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-type AirtelMoneyScreenProp = NativeStackNavigationProp<RootStackParamList, 'AirtelMoney'>;
-
 const sampleTransactions = [
   { id: '1', type: 'Envoi', amount: '-5 000 FCFA', date: '2025-06-01' },
   { id: '2', type: 'Réception', amount: '+10 000 FCFA', date: '2025-05-30' },
   { id: '3', type: 'Retrait', amount: '-3 000 FCFA', date: '2025-05-29' },
-  { id: '4', type: 'Envoi', amount: '-5 000 FCFA', date: '2025-06-01' },
-  { id: '5', type: 'Réception', amount: '+10 000 FCFA', date: '2025-05-30' },
-  { id: '6', type: 'Retrait', amount: '-3 000 FCFA', date: '2025-05-29' },
 ];
+
+type AirtelMoneyScreenProp = NativeStackNavigationProp<RootStackParamList, 'AirtelMoney'>;
 
 const AirtelMoneyScreen = () => {
   const navigation = useNavigation<AirtelMoneyScreenProp>();
@@ -43,12 +40,11 @@ const AirtelMoneyScreen = () => {
   }, []);
 
   const handleNavigateToAirtelMoneyAllTransactions = () => {
-    try {
-      console.log('Navigation AirtelMoneyAllTransactions démarrée');
-      navigation.navigate('AirtelMoneyAllTransactions');
-    } catch (err) {
-      console.error('Erreur navigation AirtelMoneyAllTransactions', err);
-    }
+    navigation.navigate('AirtelMoneyAllTransactions');
+  };
+
+  const handleNavigateToVaults = () => {
+    navigation.navigate('VaultsScreen');
   };
 
   const filteredTransactions = sampleTransactions.filter((item) => {
@@ -69,9 +65,7 @@ const AirtelMoneyScreen = () => {
         >
           <View style={styles.contentWrapper}>
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-              <Text style={styles.welcome}>
-                Bonjour {username}, bienvenue sur votre compte Airtel Money
-              </Text>
+              <Text style={styles.welcome}>Bonjour {username}, bienvenue sur votre compte Airtel Money</Text>
 
               <Text style={styles.balanceLabel}>Solde actuel</Text>
               <Text style={styles.balanceValue}>15 000 FCFA</Text>
@@ -87,7 +81,7 @@ const AirtelMoneyScreen = () => {
                   onChangeText={setSearchQuery}
                 />
 
-                {filteredTransactions.slice(0, 3).map((item) => (
+                {filteredTransactions.map((item) => (
                   <View key={item.id} style={styles.transactionItem}>
                     <Text style={styles.transactionType}>{item.type}</Text>
                     <Text style={styles.transactionAmount}>{item.amount}</Text>
@@ -95,28 +89,19 @@ const AirtelMoneyScreen = () => {
                   </View>
                 ))}
 
-                {sampleTransactions.length > 3 && (
-                  <TouchableOpacity
-                    onPress={handleNavigateToAirtelMoneyAllTransactions}
-                    style={styles.toggleButton}
-                  >
-                    <Text style={styles.toggleText}>Consulter tout l'historique</Text>
-                  </TouchableOpacity>
-                )}
+                <TouchableOpacity
+                  onPress={handleNavigateToAirtelMoneyAllTransactions}
+                  style={styles.toggleButton}
+                >
+                  <Text style={styles.toggleText}>Consulter tout l'historique</Text>
+                </TouchableOpacity>
               </View>
 
-              {/* Mes coffres */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Mes coffres</Text>
-                <TouchableOpacity style={styles.actionButton}>
-                  <Ionicons name="wallet" size={20} color="#fff" />
-                  <Text style={styles.buttonText}>Coffres standards</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton}>
-                  <Ionicons name="wallet" size={20} color="#fff" />
-                  <Text style={styles.buttonText}>Coffres bloqués</Text>
-                </TouchableOpacity>
-              </View>
+              {/* Coffres */}
+              <TouchableOpacity style={styles.actionButton} onPress={handleNavigateToVaults}>
+                <Ionicons name="wallet" size={20} color="#fff" />
+                <Text style={styles.buttonText}>Mes coffres</Text>
+              </TouchableOpacity>
 
               {/* Mes opérations */}
               <View style={styles.section}>
@@ -229,46 +214,46 @@ const styles = StyleSheet.create({
     backgroundColor: '#00796B',
     flexDirection: 'row',
     alignItems: 'center',
-padding: 12,
-borderRadius: 8,
-marginBottom: 10,
-gap: 10,
-},
-operationButton: {
-flex: 1,
-backgroundColor: '#009688',
-flexDirection: 'row',
-alignItems: 'center',
-padding: 12,
-borderRadius: 8,
-justifyContent: 'center',
-marginHorizontal: 4,
-},
-row: { flexDirection: 'row', justifyContent: 'space-between' },
-buttonText: { color: '#fff', fontWeight: 'bold' },
-returnButtonWrapper: {
-paddingHorizontal: 20,
-paddingTop: 10,
-backgroundColor: 'transparent',
-},
-returnButton: {
-backgroundColor: '#B71C1C',
-paddingVertical: 14,
-borderRadius: 8,
-alignItems: 'center',
-},
-toggleButton: {
-marginTop: 10,
-alignItems: 'center',
-},
-toggleText: {
-color: '#00796B',
-fontWeight: 'bold',
-},
-searchInput: {
-backgroundColor: '#f5f5f5',
-borderRadius: 8,
-padding: 10,
-marginBottom: 10,
-},
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 10,
+    gap: 10,
+  },
+  operationButton: {
+    flex: 1,
+    backgroundColor: '#009688',
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    justifyContent: 'center',
+    marginHorizontal: 4,
+  },
+  row: { flexDirection: 'row', justifyContent: 'space-between' },
+  buttonText: { color: '#fff', fontWeight: 'bold' },
+  returnButtonWrapper: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    backgroundColor: 'transparent',
+  },
+  returnButton: {
+    backgroundColor: '#B71C1C',
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  toggleButton: {
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  toggleText: {
+    color: '#00796B',
+    fontWeight: 'bold',
+  },
+  searchInput: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 10,
+  },
 });

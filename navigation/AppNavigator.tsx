@@ -12,9 +12,27 @@ import ProfileScreen from '../screens/Profile/ProfileScreen';
 import LibertisTransactionsScreen from '../screens/Libertis/LibertisTransactionsScreen';
 import AirtelMoneyAllTransactionsScreen from '../screens/Airtel/AirtelMoneyAllTransactionsScreen';
 import TransactionDetailLibertisScreen from '../screens/Libertis/TransactionDetailLibertisScreen';
+import VaultsScreen from '../screens/Airtel/VaultsScreen';
+import VaultDetailsScreen from '../screens/Airtel/VaultDetailsScreen';
 import TransactionDetailScreen from '../screens/Airtel/TransactionDetailScreen';
 
+
 export type RootStackParamList = {
+  // ...autres écrans
+  VaultDetails: {
+  
+  vault: {
+    id: string;
+    name: string;
+    balance: number;
+    goal?: number;
+    createdAt: Date;
+    type: 'standard' | 'locked';
+    lockedUntil?: string; // 🔧 ajouté
+    uid: string;          // 🔧 ajouté
+  };
+
+  };
   Accounts: undefined;
   Login: undefined;
   Register: undefined;
@@ -27,6 +45,7 @@ export type RootStackParamList = {
   Profile: undefined;
   LibertisTransactions: undefined;
   TransactionDetail: { transaction: Transaction };
+  VaultsScreen: undefined;
   TransactionDetailLibertis: { transaction: Transaction };
 };
 
@@ -62,6 +81,8 @@ const AppNavigator = ({ initialRoute }: AppNavigatorProps) => {
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="LibertisTransactions" component={LibertisTransactionsScreen} />
       <Stack.Screen name="TransactionDetail" component={TransactionDetailScreen} />
+      <Stack.Screen name="VaultsScreen" component={VaultsScreen} />
+      <Stack.Screen name="VaultDetails" component={VaultDetailsScreen} />
       <Stack.Screen name="TransactionDetailLibertis" component={TransactionDetailLibertisScreen} />
     </Stack.Navigator>
   );
