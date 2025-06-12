@@ -15,6 +15,8 @@ import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../services/firebaseConfig';
 import { getAuth, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { format } from 'date-fns';
+import { runTransaction } from 'firebase/firestore';
+
 
 // Types
 
@@ -64,65 +66,101 @@ const VaultDetailsScreen = () => {
     setModalVisible(true);
   };
 
-  const handleConfirmedAction = async () => {
-    if (!user || !user.email) return;
+  // ... (imports inchangés)
 
-    const credential = EmailAuthProvider.credential(user.email, password);
-    try {
-      await reauthenticateWithCredential(user, credential);
+const handleConfirmedAction = async () => {
+  if (!user || !user.email) return;
 
-      const vaultRef = doc(db, 'users', user.uid, 'vaults', vault.id);
+  const credential = EmailAuthProvider.credential(user.email, password);
+  const vaultRef = doc(db, 'users', user.uid, 'vaults', vault.id);
+  const userRef = doc(db, 'users', user.uid);
+
+  try {
+    await reauthenticateWithCredential(user, credential);
+
+    const value = parseInt(amount);
+    if ((actionType === 'add' || actionType === 'withdraw') && (!value || isNaN(value) || value <= 0)) {
+      Alert.alert('Erreur', 'Veuillez saisir un montant valide.');
+      return;
+    }
+
+    await runTransaction(db, async (transaction) => {
+      const vaultSnap = await transaction.get(vaultRef);
+      const userSnap = await transaction.get(userRef);
+
+      if (!vaultSnap.exists() || !userSnap.exists()) throw new Error("Données introuvables");
+
+      const currentVault = vaultSnap.data();
+      const currentBalance = currentVault.balance;
+      const currentMainBalance = userSnap.data().mainBalance || 0;
 
       if (actionType === 'add') {
-        const value = parseInt(amount);
-        if (isNaN(value) || value <= 0) return;
-        await updateDoc(vaultRef, { balance: vault.balance + value });
-        Alert.alert('Succès', 'Argent ajouté au coffre');
+        if (value > currentMainBalance) throw new Error('SOLDE_INSUFFISANT');
+        transaction.update(vaultRef, { balance: currentBalance + value });
+        transaction.update(userRef, { mainBalance: currentMainBalance - value });
+
       } else if (actionType === 'withdraw') {
-        const value = parseInt(amount);
-        if (isNaN(value) || value <= 0) return;
-        if (value > vault.balance) {
-          Alert.alert('Erreur', 'Montant supérieur au solde du coffre');
-          return;
-        }
+        if (value > currentBalance) throw new Error('COFFRE_INSUFFISANT');
+
         const now = new Date();
         const unlockDate = getUnlockDate();
         if (isLocked && unlockDate && now < unlockDate) {
-          Alert.alert(
-            'Coffre bloqué',
-            `Retrait possible à partir du ${format(unlockDate, 'dd/MM/yyyy')}.`
-          );
-          return;
+          throw new Error(`BLOQUÉ_JUSQUAU_${format(unlockDate, 'dd/MM/yyyy')}`);
         }
-        await updateDoc(vaultRef, { balance: vault.balance - value });
-        Alert.alert('Succès', 'Argent retiré du coffre');
-      } else if (actionType === 'delete') {
-        await deleteDoc(vaultRef);
-        Alert.alert('Succès', 'Coffre supprimé');
-      }
 
-      setModalVisible(false);
-      setFailedAttempts(0);
-      navigation.goBack();
-    } catch (error) {
-      const nextAttempts = failedAttempts + 1;
-      setFailedAttempts(nextAttempts);
-      if (nextAttempts >= 5) {
-        Alert.alert(
-          'Trop de tentatives',
-          'Vous allez être redirigé vers la réinitialisation du mot de passe.',
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.navigate('ForgotPassword'),
-            },
-          ]
-        );
-      } else {
-        Alert.alert('Erreur', 'Mot de passe incorrect');
+        transaction.update(vaultRef, { balance: currentBalance - value });
+        transaction.update(userRef, { mainBalance: currentMainBalance + value });
+
+      } else if (actionType === 'delete') {
+        transaction.delete(vaultRef);
+        transaction.update(userRef, { mainBalance: currentMainBalance + currentBalance });
       }
+    });
+
+    const successMessage =
+      actionType === 'delete'
+        ? `Coffre supprimé. Le montant a été transféré vers votre solde principal.`
+        : actionType === 'add'
+        ? 'Argent ajouté au coffre.'
+        : 'Argent retiré du coffre.';
+
+    Alert.alert('Succès', successMessage);
+
+    setModalVisible(false);
+    setFailedAttempts(0);
+    navigation.goBack();
+
+  } catch (error: any) {
+    if (__DEV__) {
+      console.error('Erreur lors de la transaction :', error);
     }
-  };
+    const nextAttempts = failedAttempts + 1;
+    setFailedAttempts(nextAttempts);
+
+    const isWrongPassword =
+      error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password';
+
+    if (nextAttempts >= 5) {
+      Alert.alert(
+        'Trop de tentatives',
+        'Vous allez être redirigé vers la réinitialisation du mot de passe.',
+        [{ text: 'OK', onPress: () => navigation.navigate('ForgotPassword') }]
+      );
+    } else if (isWrongPassword) {
+      Alert.alert('Mot de passe incorrect', `Tentative ${nextAttempts} sur 5`);
+    } else if (error.message === 'SOLDE_INSUFFISANT') {
+      Alert.alert('Erreur', 'Votre solde principal est insuffisant pour cette opération.');
+    } else if (error.message === 'COFFRE_INSUFFISANT') {
+      Alert.alert('Erreur', 'Le montant dépasse le solde disponible dans ce coffre.');
+    } else if (error.message?.startsWith('BLOQUÉ_JUSQUAU_')) {
+      const date = error.message.replace('BLOQUÉ_JUSQUAU_', '');
+      Alert.alert('Coffre bloqué', `Retrait possible à partir du ${date}.`);
+    } else {
+      Alert.alert('Erreur', 'Une erreur inattendue est survenue. Veuillez réessayer.');
+    }
+  }
+};
+
 
   return (
     <View style={styles.container}>

@@ -14,9 +14,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
-import { auth } from '../../services/firebaseConfig';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { auth, db } from '../../services/firebaseConfig';
+
 
 const sampleTransactions = [
   { id: '1', type: 'Envoi', amount: '-5 000 FCFA', date: '2025-06-01' },
@@ -31,13 +33,35 @@ const AirtelMoneyScreen = () => {
   const [username, setUsername] = useState('');
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
+  const [mainBalance, setMainBalance] = useState<number | null>(null);
 
   useEffect(() => {
-    const currentUser = auth.currentUser;
-    if (currentUser) {
-      setUsername(currentUser.displayName || 'Utilisateur');
-    }
-  }, []);
+  const currentUser = auth.currentUser;
+  if (currentUser) {
+    setUsername(currentUser.displayName || 'Utilisateur');
+
+    const userRef = doc(db, 'users', currentUser.uid);
+
+    const unsubscribe = onSnapshot(userRef, async (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.mainBalance === undefined) {
+          // Création si non défini
+          await setDoc(userRef, { mainBalance: 0 }, { merge: true });
+          setMainBalance(0);
+        } else {
+          setMainBalance(data.mainBalance);
+        }
+      } else {
+        await setDoc(userRef, { mainBalance: 0 });
+        setMainBalance(0);
+      }
+    });
+
+    return () => unsubscribe();
+  }
+}, []);
+
 
   const handleNavigateToAirtelMoneyAllTransactions = () => {
     navigation.navigate('AirtelMoneyAllTransactions');
@@ -68,7 +92,9 @@ const AirtelMoneyScreen = () => {
               <Text style={styles.welcome}>Bonjour {username}, bienvenue sur votre compte Airtel Money</Text>
 
               <Text style={styles.balanceLabel}>Solde actuel</Text>
-              <Text style={styles.balanceValue}>15 000 FCFA</Text>
+              <Text style={styles.balanceValue}>
+                {mainBalance !== null ? `${mainBalance.toLocaleString()} FCFA` : 'Chargement...'}
+              </Text>
 
               {/* Transactions récentes */}
               <View style={styles.section}>
