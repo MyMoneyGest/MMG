@@ -71,11 +71,17 @@ const VaultDetailsScreen = () => {
 const handleConfirmedAction = async () => {
   if (!user || !user.email) return;
 
+    if (!password.trim()) {
+      Alert.alert('Erreur', 'Veuillez entrer votre mot de passe.');
+      return;
+    }
+
   const credential = EmailAuthProvider.credential(user.email, password);
   const vaultRef = doc(db, 'users', user.uid, 'vaults', vault.id);
   const userRef = doc(db, 'users', user.uid);
 
   try {
+    
     await reauthenticateWithCredential(user, credential);
 
     const value = parseInt(amount);
@@ -130,37 +136,51 @@ const handleConfirmedAction = async () => {
     setFailedAttempts(0);
     navigation.goBack();
 
-  } catch (error: any) {
-    if (__DEV__) {
-      console.error('Erreur lors de la transaction :', error);
-    }
-    const nextAttempts = failedAttempts + 1;
-    setFailedAttempts(nextAttempts);
+    } catch (error: any) {
+        if (__DEV__) {
+          console.error('Erreur lors de la transaction :', error);
+        }
 
-    const isWrongPassword =
-      error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password';
+        const nextAttempts = failedAttempts + 1;
+        setFailedAttempts(nextAttempts);
 
-    if (nextAttempts >= 5) {
-      Alert.alert(
-        'Trop de tentatives',
-        'Vous allez être redirigé vers la réinitialisation du mot de passe.',
-        [{ text: 'OK', onPress: () => navigation.navigate('ForgotPassword') }]
-      );
-    } else if (isWrongPassword) {
-      Alert.alert('Mot de passe incorrect', `Tentative ${nextAttempts} sur 5`);
-    } else if (error.message === 'SOLDE_INSUFFISANT') {
-      Alert.alert('Erreur', 'Votre solde principal est insuffisant pour cette opération.');
-    } else if (error.message === 'COFFRE_INSUFFISANT') {
-      Alert.alert('Erreur', 'Le montant dépasse le solde disponible dans ce coffre.');
-    } else if (error.message?.startsWith('BLOQUÉ_JUSQUAU_')) {
-      const date = error.message.replace('BLOQUÉ_JUSQUAU_', '');
-      Alert.alert('Coffre bloqué', `Retrait possible à partir du ${date}.`);
-    } else {
-      Alert.alert('Erreur', 'Une erreur inattendue est survenue. Veuillez réessayer.');
-    }
-  }
-};
+        const isWrongPassword =
+          error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password';
 
+        if (nextAttempts >= 5) {
+          Alert.alert(
+            'Trop de tentatives',
+            'Vous allez être redirigé vers la réinitialisation du mot de passe.',
+            [{ text: 'OK', onPress: () => navigation.navigate('ForgotPassword') }]
+          );
+          return;
+        }
+
+        if (isWrongPassword) {
+          Alert.alert('Mot de passe incorrect', `Tentative ${nextAttempts} sur 5`);
+          return;
+        }
+
+        if (error.message === 'SOLDE_INSUFFISANT') {
+          Alert.alert('Erreur', 'Votre solde principal est insuffisant pour cette opération.');
+          return;
+        }
+
+        if (error.message === 'COFFRE_INSUFFISANT') {
+          Alert.alert('Erreur', 'Le montant dépasse le solde disponible dans ce coffre.');
+          return;
+        }
+
+        if (error.message?.startsWith('BLOQUÉ_JUSQUAU_')) {
+          const date = error.message.replace('BLOQUÉ_JUSQUAU_', '');
+          Alert.alert('Coffre bloqué', `Retrait possible à partir du ${date}.`);
+          return;
+        }
+
+        // 🛑 Ce message ne s’affiche que si aucune condition précédente n’a été remplie
+        Alert.alert('Erreur', 'Une erreur inattendue est survenue. Veuillez réessayer.');
+      }
+  };
 
   return (
     <View style={styles.container}>

@@ -11,6 +11,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
+import { auth, db } from '../../services/firebaseConfig';
+import { doc, getDoc } from 'firebase/firestore';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Accounts'>;
 
@@ -20,6 +22,26 @@ const AccountsScreen = () => {
   const accessFeature = (label: string) => {
     Alert.alert('Fonctionnalité à venir', `Accès à : ${label}`);
   };
+
+  const handleAirtelAccess = async () => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+
+    try {
+      const airtelRef = doc(db, 'users', currentUser.uid, 'linkedAccounts', 'airtel');
+      const docSnap = await getDoc(airtelRef);
+
+      if (docSnap.exists()) {
+        navigation.navigate('AirtelMoney');
+      } else {
+        navigation.navigate('LinkAirtelScreen');
+      }
+    } catch (error) {
+      console.error('Erreur lors de la récupération du compte Airtel :', error);
+      Alert.alert('Erreur', "Impossible d'accéder aux données Airtel.");
+    }
+  };
+
 
   return (
     <LinearGradient colors={['#A8E6CF', '#00BCD4']} style={styles.container}>
@@ -34,11 +56,8 @@ const AccountsScreen = () => {
           <Text style={styles.buttonText}>Compte bancaire</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => navigation.navigate('AirtelMoney')}
-        >
-          <Text style={styles.buttonText}>Airtel Money</Text>
+        <TouchableOpacity style={styles.button} onPress={handleAirtelAccess}>
+          <Text style={styles.buttonText}>🧧 Airtel Money</Text>
         </TouchableOpacity>
 
         <TouchableOpacity

@@ -20,25 +20,42 @@ import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../../services/firebaseConfig';
 
 
-const sampleTransactions = [
-  { id: '1', type: 'Envoi', amount: '-5 000 FCFA', date: '2025-06-01' },
-  { id: '2', type: 'Réception', amount: '+10 000 FCFA', date: '2025-05-30' },
-  { id: '3', type: 'Retrait', amount: '-3 000 FCFA', date: '2025-05-29' },
-];
 
 type AirtelMoneyScreenProp = NativeStackNavigationProp<RootStackParamList, 'AirtelMoney'>;
 
 const AirtelMoneyScreen = () => {
   const navigation = useNavigation<AirtelMoneyScreenProp>();
   const [username, setUsername] = useState('');
+  const [airtelBalance, setAirtelBalance] = useState<number | null>(null);
+  const [airtelTransactions, setAirtelTransactions] = useState<any[]>([]);
+
+  
+
+  const fetchAirtelData = async () => {
+  const user = auth.currentUser;
+    if (!user) return;
+
+    const ref = doc(db, 'users', user.uid, 'linkedAccounts', 'airtel');
+    const docSnap = await getDoc(ref);
+
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      setAirtelBalance(data.airtelBalance);
+      setAirtelTransactions(data.transactions || []);
+    }
+  };
+
+
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [mainBalance, setMainBalance] = useState<number | null>(null);
 
   useEffect(() => {
+
   const currentUser = auth.currentUser;
   if (currentUser) {
     setUsername(currentUser.displayName || 'Utilisateur');
+    fetchAirtelData();
 
     const userRef = doc(db, 'users', currentUser.uid);
 
@@ -71,7 +88,7 @@ const AirtelMoneyScreen = () => {
     navigation.navigate('VaultsScreen');
   };
 
-  const filteredTransactions = sampleTransactions.filter((item) => {
+  const filteredTransactions = airtelTransactions.filter((item) => {
     const query = searchQuery.toLowerCase();
     return (
       item.type.toLowerCase().includes(query) ||
@@ -92,9 +109,10 @@ const AirtelMoneyScreen = () => {
               <Text style={styles.welcome}>Bonjour {username}, bienvenue sur votre compte Airtel Money</Text>
 
               <Text style={styles.balanceLabel}>Solde actuel</Text>
-              <Text style={styles.balanceValue}>
-                {mainBalance !== null ? `${mainBalance.toLocaleString()} FCFA` : 'Chargement...'}
-              </Text>
+            <Text style={styles.balanceValue}>
+              {airtelBalance !== null ? `${airtelBalance.toLocaleString()} FCFA` : 'Chargement...'}
+            </Text> 
+
 
               {/* Transactions récentes */}
               <View style={styles.section}>
