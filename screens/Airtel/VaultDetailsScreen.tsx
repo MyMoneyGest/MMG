@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,12 +11,10 @@ import {
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
-import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc, runTransaction, onSnapshot } from 'firebase/firestore';
 import { db } from '../../services/firebaseConfig';
 import { getAuth, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { format } from 'date-fns';
-import { runTransaction } from 'firebase/firestore';
-
 
 // Types
 
@@ -45,6 +43,7 @@ const VaultDetailsScreen = () => {
   const isAmountValid = !!amount && !isNaN(Number(amount)) && Number(amount) > 0;
   const [password, setPassword] = useState('');
   const [failedAttempts, setFailedAttempts] = useState(0);
+  const [airtelBalance, setAirtelBalance] = useState<number | null>(null);
 
   const isLocked = vault.type === 'locked';
 
@@ -66,127 +65,201 @@ const VaultDetailsScreen = () => {
     setModalVisible(true);
   };
 
-  // ... (imports inchangés)
+  useEffect(() => {
+    if (!user) return;
 
-const handleConfirmedAction = async () => {
-  if (!user || !user.email) return;
+    const airtelRef = doc(db, 'users', user.uid, 'linkedAccounts', 'airtel');
+
+    const unsubscribe = onSnapshot(airtelRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        setAirtelBalance(data.airtelBalance || 0);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const generateTransactionReference = async (): Promise<string> => {
+    const counterRef = doc(db, 'globalCounters', 'transactions');
+
+    const newRef = await runTransaction(db, async (transaction) => {
+      const counterDoc = await transaction.get(counterRef);
+
+      if (!counterDoc.exists()) {
+        throw new Error("Le compteur global n'existe pas.");
+      }
+
+      const currentCount = counterDoc.data().transactionCounter || 0;
+      const nextCount = currentCount + 1;
+
+      transaction.update(counterRef, { transactionCounter: nextCount });
+
+      const padded = String(nextCount).padStart(8, '0');
+      return `TX-${padded}`;
+    });
+
+    return newRef;
+  };
+
+  const handleConfirmedAction = async () => {
+    if (!user || !user.email) return;
 
     if (!password.trim()) {
       Alert.alert('Erreur', 'Veuillez entrer votre mot de passe.');
       return;
     }
 
-  const credential = EmailAuthProvider.credential(user.email, password);
-  const vaultRef = doc(db, 'users', user.uid, 'vaults', vault.id);
-  const userRef = doc(db, 'users', user.uid);
+    const credential = EmailAuthProvider.credential(user.email, password);
+    const vaultRef = doc(db, 'users', user.uid, 'vaults', vault.id);
+    const airtelRef = doc(db, 'users', user.uid, 'linkedAccounts', 'airtel');
 
-  try {
-    
-    await reauthenticateWithCredential(user, credential);
+    try {
+      await reauthenticateWithCredential(user, credential);
 
-    const value = parseInt(amount);
-    if ((actionType === 'add' || actionType === 'withdraw') && (!value || isNaN(value) || value <= 0)) {
-      Alert.alert('Erreur', 'Veuillez saisir un montant valide.');
-      return;
-    }
-
-    await runTransaction(db, async (transaction) => {
-      const vaultSnap = await transaction.get(vaultRef);
-      const userSnap = await transaction.get(userRef);
-
-      if (!vaultSnap.exists() || !userSnap.exists()) throw new Error("Données introuvables");
-
-      const currentVault = vaultSnap.data();
-      const currentBalance = currentVault.balance;
-      const currentMainBalance = userSnap.data().mainBalance || 0;
-
-      if (actionType === 'add') {
-        if (value > currentMainBalance) throw new Error('SOLDE_INSUFFISANT');
-        transaction.update(vaultRef, { balance: currentBalance + value });
-        transaction.update(userRef, { mainBalance: currentMainBalance - value });
-
-      } else if (actionType === 'withdraw') {
-        if (value > currentBalance) throw new Error('COFFRE_INSUFFISANT');
-
-        const now = new Date();
-        const unlockDate = getUnlockDate();
-        if (isLocked && unlockDate && now < unlockDate) {
-          throw new Error(`BLOQUÉ_JUSQUAU_${format(unlockDate, 'dd/MM/yyyy')}`);
-        }
-
-        transaction.update(vaultRef, { balance: currentBalance - value });
-        transaction.update(userRef, { mainBalance: currentMainBalance + value });
-
-      } else if (actionType === 'delete') {
-        transaction.delete(vaultRef);
-        transaction.update(userRef, { mainBalance: currentMainBalance + currentBalance });
+      const value = parseInt(amount);
+      if ((actionType === 'add' || actionType === 'withdraw') && (!value || isNaN(value) || value <= 0)) {
+        Alert.alert('Erreur', 'Veuillez saisir un montant valide.');
+        return;
       }
-    });
 
-    const successMessage =
-      actionType === 'delete'
-        ? `Coffre supprimé. Le montant a été transféré vers votre solde principal.`
-        : actionType === 'add'
-        ? 'Argent ajouté au coffre.'
-        : 'Argent retiré du coffre.';
+      await runTransaction(db, async (transaction) => {
+        const vaultSnap = await transaction.get(vaultRef);
+        const airtelSnap = await transaction.get(airtelRef);
 
-    Alert.alert('Succès', successMessage);
+        if (!vaultSnap.exists() || !airtelSnap.exists()) throw new Error("Données introuvables");
 
-    setModalVisible(false);
-    setFailedAttempts(0);
-    navigation.goBack();
+        const currentVault = vaultSnap.data();
+        const currentBalance = currentVault.balance;
+        const currentairtelBalance = airtelSnap.data().airtelBalance || 0;
+
+        if (actionType === 'add') {
+          if (value > currentairtelBalance) throw new Error('SOLDE_INSUFFISANT');
+          transaction.update(vaultRef, { balance: currentBalance + value });
+          transaction.update(airtelRef, { airtelBalance: currentairtelBalance - value });
+
+          const reference = await generateTransactionReference();
+
+          const newTx = {
+            reference,
+            type: 'Virement vers coffre',
+            amount: -value,
+            date: new Date().toISOString(), // format complet : "2025-06-14T13:57:00.000Z"
+            sender: 'Vous',
+            receiver: `Coffre ${vault.name}`,
+            status: 'Réussi',
+            vaultId: vault.id,
+            vaultName: vault.name,
+          };
+
+          const transactions = [...airtelSnap.data().transactions || [], newTx];
+          transaction.update(airtelRef, { transactions });
+
+        } else if (actionType === 'withdraw') {
+          if (value > currentBalance) throw new Error('COFFRE_INSUFFISANT');
+
+          const now = new Date();
+          const unlockDate = getUnlockDate();
+          if (isLocked && unlockDate && now < unlockDate) {
+            throw new Error(`BLOQUÉ_JUSQUAU_${format(unlockDate, 'dd/MM/yyyy')}`);
+          }
+
+          transaction.update(vaultRef, { balance: currentBalance - value });
+          transaction.update(airtelRef, { airtelBalance: currentairtelBalance + value });
+
+          const reference = await generateTransactionReference();
+
+          const newTx = {
+            reference,
+            type: 'Retrait depuis coffre',
+            amount: value,
+            date: new Date().toISOString(), // 👈 ça inclut la date + l'heure + les secondes
+            sender: `Coffre ${vault.name}`,
+            receiver: 'Vous',
+            status: 'Réussi',
+            vaultId: vault.id,
+            vaultName: vault.name,
+          };
+
+          const transactions = [...airtelSnap.data().transactions || [], newTx];
+          transaction.update(airtelRef, { transactions });
+
+        } else if (actionType === 'delete') {
+          transaction.delete(vaultRef);
+          transaction.update(airtelRef, { airtelBalance: currentairtelBalance + currentBalance });
+        }
+      });
+
+      const successMessage =
+        actionType === 'delete'
+          ? `Coffre supprimé. Le montant a été transféré vers votre solde principal.`
+          : actionType === 'add'
+          ? 'Argent ajouté au coffre.'
+          : 'Argent retiré du coffre.';
+
+      Alert.alert('Succès', successMessage);
+
+      setModalVisible(false);
+      setFailedAttempts(0);
+      navigation.goBack();
 
     } catch (error: any) {
-        if (__DEV__) {
-          console.error('Erreur lors de la transaction :', error);
-        }
-
-        const nextAttempts = failedAttempts + 1;
-        setFailedAttempts(nextAttempts);
-
-        const isWrongPassword =
-          error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password';
-
-        if (nextAttempts >= 5) {
-          Alert.alert(
-            'Trop de tentatives',
-            'Vous allez être redirigé vers la réinitialisation du mot de passe.',
-            [{ text: 'OK', onPress: () => navigation.navigate('ForgotPassword') }]
-          );
-          return;
-        }
-
-        if (isWrongPassword) {
-          Alert.alert('Mot de passe incorrect', `Tentative ${nextAttempts} sur 5`);
-          return;
-        }
-
-        if (error.message === 'SOLDE_INSUFFISANT') {
-          Alert.alert('Erreur', 'Votre solde principal est insuffisant pour cette opération.');
-          return;
-        }
-
-        if (error.message === 'COFFRE_INSUFFISANT') {
-          Alert.alert('Erreur', 'Le montant dépasse le solde disponible dans ce coffre.');
-          return;
-        }
-
-        if (error.message?.startsWith('BLOQUÉ_JUSQUAU_')) {
-          const date = error.message.replace('BLOQUÉ_JUSQUAU_', '');
-          Alert.alert('Coffre bloqué', `Retrait possible à partir du ${date}.`);
-          return;
-        }
-
-        // 🛑 Ce message ne s’affiche que si aucune condition précédente n’a été remplie
-        Alert.alert('Erreur', 'Une erreur inattendue est survenue. Veuillez réessayer.');
+      if (__DEV__) {
+        console.error('Erreur lors de la transaction :', error);
       }
+
+      const nextAttempts = failedAttempts + 1;
+      setFailedAttempts(nextAttempts);
+
+      const isWrongPassword =
+        error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password';
+
+      if (nextAttempts >= 5) {
+        Alert.alert(
+          'Trop de tentatives',
+          'Vous allez être redirigé vers la réinitialisation du mot de passe.',
+          [{ text: 'OK', onPress: () => navigation.navigate('ForgotPassword') }]
+        );
+        return;
+      }
+
+      if (isWrongPassword) {
+        Alert.alert('Mot de passe incorrect', `Tentative ${nextAttempts} sur 5`);
+        return;
+      }
+
+      if (error.message === 'SOLDE_INSUFFISANT') {
+        Alert.alert('Erreur', 'Votre solde principal est insuffisant pour cette opération.');
+        return;
+      }
+
+      if (error.message === 'COFFRE_INSUFFISANT') {
+        Alert.alert('Erreur', 'Le montant dépasse le solde disponible dans ce coffre.');
+        return;
+      }
+
+      if (error.message?.startsWith('BLOQUÉ_JUSQUAU_')) {
+        const date = error.message.replace('BLOQUÉ_JUSQUAU_', '');
+        Alert.alert('Coffre bloqué', `Retrait possible à partir du ${date}.`);
+        return;
+      }
+
+      Alert.alert('Erreur', 'Une erreur inattendue est survenue. Veuillez réessayer.');
+    }
   };
 
   return (
+    
     <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <Text style={styles.title}>{vault.name}</Text>
-      </View>
+          <View style={styles.headerRow}>
+      <Text style={styles.title}>{vault.name}</Text>
+      {airtelBalance !== null && (
+        <Text style={styles.balanceSmall}>
+          💰 {airtelBalance.toLocaleString()} FCFA
+        </Text>
+      )}
+    </View>
+
       <Text style={styles.balance}>Solde : {vault.balance.toLocaleString()} FCFA</Text>
       {vault.goal && <Text>🎯 Objectif : {vault.goal.toLocaleString()} FCFA</Text>}
       {unlockDateFormatted && <Text>🔒 Débloqué le : {unlockDateFormatted}</Text>}
@@ -231,7 +304,7 @@ const handleConfirmedAction = async () => {
             <Text style={styles.modalTitle}>Confirmez avec votre mot de passe</Text>
             <TextInput
               placeholder="Mot de passe"
-              secureTextEntry
+              secureTextEntry                  
               value={password}
               onChangeText={setPassword}
               style={styles.input}
@@ -287,5 +360,15 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     backgroundColor: '#ccc',
+  },
+
+  balanceSmall: {
+  fontSize: 14,
+  color: '#00796B',
+  fontWeight: '600',
+  },
+  value: {
+    fontSize: 16,
+    color: '#333',
   },
 });

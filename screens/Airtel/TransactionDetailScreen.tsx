@@ -35,7 +35,14 @@ const TransactionDetailScreen = () => {
           <img src="${logoBase64}" alt="MyMoneyGest Logo" />
           <h1>Détail de la transaction</h1>
           <p>Canal : Airtel Money</p>
-          <p>Date : ${transaction.date}</p>
+          <p>Date : ${new Date(transaction.date).toLocaleString('fr-FR', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+            })}</p>
         </header>
 
         <table>
@@ -74,10 +81,19 @@ const TransactionDetailScreen = () => {
           <Text style={styles.value}>{transaction.type}</Text>
 
           <Text style={styles.label}>Montant :</Text>
-          <Text style={styles.value}>{transaction.amount}</Text>
+          <Text style={styles.value}>{transaction.amount} FCFA</Text>
 
           <Text style={styles.label}>Date :</Text>
-          <Text style={styles.value}>{transaction.date}</Text>
+          <Text style={styles.value}>
+            {new Date(transaction.date).toLocaleString('fr-FR', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+            })}
+          </Text>
 
           <Text style={styles.label}>Référence :</Text>
           <Text style={styles.value}>{transaction.reference}</Text>

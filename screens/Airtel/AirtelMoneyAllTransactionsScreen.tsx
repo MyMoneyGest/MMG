@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,76 +11,91 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/AppNavigator';
+import { RootStackParamList } from '../../navigation/AppNavigator';
+import { auth, db } from '../../services/firebaseConfig';
+import { doc, onSnapshot } from 'firebase/firestore';
 
-type AirtelMoneyAllTransactionsScreenProp = NativeStackNavigationProp<RootStackParamList,'AirtelMoneyAllTransactions'>;
-
-const sampleTransactions = [
-  {
-    id: '1',
-    type: 'Envoi',
-    amount: '-5 000 FCFA',
-    date: '2025-06-01',
-    reference: 'TX123456',
-    status: 'Réussie',
-    sender: 'Jean Dupont',
-    receiver: 'Marie Koffi',
-  },
-  {
-    id: '2',
-    type: 'Réception',
-    amount: '+10 000 FCFA',
-    date: '2025-05-30',
-    reference: 'TX123457',
-    status: 'Réussie',
-    sender: 'Brenda',
-    receiver: 'Mitachi',
-  },
-  { id: '1', type: 'Envoi', amount: '-5 000 FCFA', date: '2025-06-01', reference: 'TXN001', status: 'Réussi' },
-  { id: '2', type: 'Réception', amount: '+10 000 FCFA', date: '2025-05-30', reference: 'TXN002', status: 'Réussi' },
-  { id: '3', type: 'Retrait', amount: '-3 000 FCFA', date: '2025-05-29', reference: 'TXN003', status: 'Échoué' },
-  { id: '4', type: 'Paiement', amount: '-2 000 FCFA', date: '2025-05-28', reference: 'TXN004', status: 'En attente' },
-  { id: '5', type: 'Envoi', amount: '-6 000 FCFA', date: '2025-06-02', reference: 'TXN005', status: 'Réussi' },
-  { id: '6', type: 'Réception', amount: '+4 000 FCFA', date: '2025-05-27', reference: 'TXN006', status: 'Réussi' },
-];
+type AirtelMoneyAllTransactionsAirtelProp = NativeStackNavigationProp<RootStackParamList, 'AirtelMoneyAllTransactions'>;
 
 const AirtelMoneyAllTransactions = () => {
-  const navigation = useNavigation<AirtelMoneyAllTransactionsScreenProp>();
+  const navigation = useNavigation<AirtelMoneyAllTransactionsAirtelProp>();
   const [searchQuery, setSearchQuery] = useState('');
+  const [transactions, setTransactions] = useState<any[]>([]);
   const insets = useSafeAreaInsets();
 
-  const filteredTransactions = sampleTransactions.filter((item) => {
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const airtelRef = doc(db, 'users', user.uid, 'linkedAccounts', 'airtel');
+
+    const unsubscribe = onSnapshot(airtelRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const txs = data.transactions || [];
+
+        const sorted = [...txs].sort(
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+
+        setTransactions(sorted);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const filteredTransactions = transactions.filter((item) => {
     const query = searchQuery.toLowerCase();
     return (
       item.type.toLowerCase().includes(query) ||
-      item.amount.toLowerCase().includes(query) ||
-      item.date.includes(query) ||
-      item.reference.toLowerCase().includes(query) ||
-      item.status.toLowerCase().includes(query)
+      String(item.amount).toLowerCase().includes(query) ||
+      item.date?.includes(query) ||
+      (item.reference ?? '').toLowerCase().includes(query) ||
+      (item.status ?? '').toLowerCase().includes(query)
     );
   });
 
-  const renderItem = ({ item }: { item: typeof sampleTransactions[0] }) => {
+  const renderItem = ({ item }: { item: typeof transactions[0] }) => {
+  const reference = item.reference
+    ? item.reference
+    : item.generatedId
+    ? `TXN${String(item.generatedId).padStart(5, '0')}`
+    : 'Réf-0000';
+
+  const sender = item.sender || 'Vous';
+  const receiver = item.receiver || (item.vaultName ? `Coffre ${item.vaultName}` : 'Destinataire inconnu');
+
   const completeTransaction = {
     ...item,
-    reference: item.reference ?? 'Réf-0000',
+    reference,
     status: item.status ?? 'Succès',
-    sender: item.sender ?? 'Vous',
-    receiver: item.receiver ?? 'Destinataire inconnu',
+    sender,
+    receiver,
   };
 
   return (
     <TouchableOpacity
       style={styles.transactionItem}
-      onPress={() => navigation.navigate('TransactionDetail', { transaction: completeTransaction })}
+      onPress={() =>
+        navigation.navigate('TransactionDetail', { transaction: completeTransaction })
+      }
     >
-      <Text style={styles.transactionType}>{item.type}</Text>
-      <Text style={styles.transactionAmount}>{item.amount}</Text>
-      <Text style={styles.transactionDate}>{item.date}</Text>
+      <Text style={styles.transactionType}>{completeTransaction.type}</Text>
+      <Text style={styles.transactionAmount}>{completeTransaction.amount}</Text>
+      <Text style={styles.transactionDate}>
+        {new Date(completeTransaction.date).toLocaleString('fr-FR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        })}
+      </Text>
     </TouchableOpacity>
   );
 };
-
 
   return (
     <SafeAreaView style={styles.container}>
@@ -99,33 +114,11 @@ const AirtelMoneyAllTransactions = () => {
 
       <FlatList
         data={filteredTransactions}
-        keyExtractor={(item, index) => `${item.id}-${index}`}
-        renderItem={({ item }) => (
-      <TouchableOpacity
-        onPress={() =>
-          navigation.navigate('TransactionDetail', {
-            transaction: {
-              ...item,
-              sender: item.sender ?? 'Inconnu',
-              receiver: item.receiver ?? 'Inconnu',
-              reference: item.reference ?? 'Aucune référence',
-              status: item.status ?? 'Inconnu',
-            },
-          })
-        }
-
-      >
-      <View style={styles.transactionItem}>
-        <Text style={styles.transactionType}>{item.type}</Text>
-        <Text style={styles.transactionAmount}>{item.amount}</Text>
-        <Text style={styles.transactionDate}>{item.date}</Text>
-      </View>
-    </TouchableOpacity>
-  )}
-  contentContainerStyle={styles.listContent}
-  showsVerticalScrollIndicator={false}
-/>
-
+        keyExtractor={(item, index) => item.reference || `txn-${index}`}
+        renderItem={renderItem}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+      />
 
       <View style={[styles.returnButtonWrapper, { paddingBottom: insets.bottom }]}>
         <TouchableOpacity style={styles.returnButton} onPress={() => navigation.goBack()}>

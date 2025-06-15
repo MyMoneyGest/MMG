@@ -19,66 +19,33 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../../services/firebaseConfig';
 
-
-
-type AirtelMoneyScreenProp = NativeStackNavigationProp<RootStackParamList, 'AirtelMoney'>;
-
 const AirtelMoneyScreen = () => {
-  const navigation = useNavigation<AirtelMoneyScreenProp>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'AirtelMoney'>>();
   const [username, setUsername] = useState('');
-  const [airtelBalance, setAirtelBalance] = useState<number | null>(null);
   const [airtelTransactions, setAirtelTransactions] = useState<any[]>([]);
-
-  
-
-  const fetchAirtelData = async () => {
-  const user = auth.currentUser;
-    if (!user) return;
-
-    const ref = doc(db, 'users', user.uid, 'linkedAccounts', 'airtel');
-    const docSnap = await getDoc(ref);
-
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      setAirtelBalance(data.airtelBalance);
-      setAirtelTransactions(data.transactions || []);
-    }
-  };
-
-
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
-  const [mainBalance, setMainBalance] = useState<number | null>(null);
+  const [airtelBalance, setairtelBalance] = useState<number | null>(null);
 
   useEffect(() => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
 
-  const currentUser = auth.currentUser;
-  if (currentUser) {
     setUsername(currentUser.displayName || 'Utilisateur');
-    fetchAirtelData();
 
-    const userRef = doc(db, 'users', currentUser.uid);
-
-    const unsubscribe = onSnapshot(userRef, async (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        if (data.mainBalance === undefined) {
-          // Création si non défini
-          await setDoc(userRef, { mainBalance: 0 }, { merge: true });
-          setMainBalance(0);
-        } else {
-          setMainBalance(data.mainBalance);
-        }
-      } else {
-        await setDoc(userRef, { mainBalance: 0 });
-        setMainBalance(0);
+    const airtelRef = doc(db, 'users', currentUser.uid, 'linkedAccounts', 'airtel');
+    const unsubscribeAirtel = onSnapshot(airtelRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        setairtelBalance(data.airtelBalance || 0);
+        setAirtelTransactions((data.transactions || []).sort(
+          (a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        ));
       }
     });
 
-    return () => unsubscribe();
-  }
-}, []);
-
+    return () => unsubscribeAirtel();
+  }, []);
 
   const handleNavigateToAirtelMoneyAllTransactions = () => {
     navigation.navigate('AirtelMoneyAllTransactions');
@@ -88,73 +55,87 @@ const AirtelMoneyScreen = () => {
     navigation.navigate('VaultsScreen');
   };
 
-  const filteredTransactions = airtelTransactions.filter((item) => {
-    const query = searchQuery.toLowerCase();
-    return (
-      item.type.toLowerCase().includes(query) ||
-      item.amount.toLowerCase().includes(query) ||
-      item.date.includes(query)
-    );
-  });
+  const handleNavigateToBeneficiaries = () => {
+    navigation.navigate('AirtelBeneficiairesScreen');
+  };
+
+  const handleNavigateToSendMoney = () => {
+    navigation.navigate('AirtelSendMoneyScreen');
+  };
+
+
+  const filteredTransactions = airtelTransactions
+    .filter((item) => {
+      const query = searchQuery.toLowerCase();
+      return (
+        item.type.toLowerCase().includes(query) ||
+        item.amount.toString().toLowerCase().includes(query) ||
+        item.date.toLowerCase().includes(query)
+      );
+    })
+    .slice(0, 3); // Affiche uniquement les 3 plus récentes
 
   return (
     <LinearGradient colors={['#A8E6CF', '#00BCD4']} style={styles.container}>
       <SafeAreaView style={{ flex: 1 }}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={{ flex: 1 }}
-        >
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
           <View style={styles.contentWrapper}>
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
               <Text style={styles.welcome}>Bonjour {username}, bienvenue sur votre compte Airtel Money</Text>
-
               <Text style={styles.balanceLabel}>Solde actuel</Text>
-            <Text style={styles.balanceValue}>
-              {airtelBalance !== null ? `${airtelBalance.toLocaleString()} FCFA` : 'Chargement...'}
-            </Text> 
+              <Text style={styles.balanceValue}>
+                {airtelBalance !== null ? `${airtelBalance.toLocaleString()} FCFA` : 'Chargement...'}
+              </Text>
 
-
-              {/* Transactions récentes */}
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Transactions récentes</Text>
 
                 <TextInput
                   style={styles.searchInput}
-                  placeholder="Rechercher une transaction"
+                  placeholder="Rechercher par type, montant, date..."
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                 />
 
                 {filteredTransactions.map((item) => (
-                  <View key={item.id} style={styles.transactionItem}>
+                  <View key={item.reference} style={styles.transactionItem}>
                     <Text style={styles.transactionType}>{item.type}</Text>
                     <Text style={styles.transactionAmount}>{item.amount}</Text>
-                    <Text style={styles.transactionDate}>{item.date}</Text>
+                    <Text style={styles.transactionDate}>
+                      {new Date(item.date).toLocaleString('fr-FR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                      })}
+                    </Text>
                   </View>
                 ))}
 
-                <TouchableOpacity
-                  onPress={handleNavigateToAirtelMoneyAllTransactions}
-                  style={styles.toggleButton}
-                >
+                <TouchableOpacity onPress={handleNavigateToAirtelMoneyAllTransactions} style={styles.toggleButton}>
                   <Text style={styles.toggleText}>Consulter tout l'historique</Text>
                 </TouchableOpacity>
               </View>
 
-              {/* Coffres */}
-              <TouchableOpacity style={styles.actionButton} onPress={handleNavigateToVaults}>
-                <Ionicons name="wallet" size={20} color="#fff" />
-                <Text style={styles.buttonText}>Mes coffres</Text>
-              </TouchableOpacity>
+              <View style={styles.section}> 
+                <Text style={styles.sectionTitle}>Coffres</Text>
+                <TouchableOpacity style={styles.actionButton} onPress={handleNavigateToVaults}>
+                  <Ionicons name="wallet" size={20} color="#fff" />
+                  <Text style={styles.buttonText}>Mes coffres</Text>
+                </TouchableOpacity>
+              </View>
 
-              {/* Mes opérations */}
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Mes opérations</Text>
                 <View style={styles.row}>
-                  <TouchableOpacity style={styles.operationButton}>
+
+                  <TouchableOpacity onPress={handleNavigateToSendMoney} style={styles.actionButton}>
                     <MaterialIcons name="send" size={20} color="#fff" />
                     <Text style={styles.buttonText}>Envoyer</Text>
                   </TouchableOpacity>
+
                   <TouchableOpacity style={styles.operationButton}>
                     <MaterialIcons name="add-circle-outline" size={20} color="#fff" />
                     <Text style={styles.buttonText}>Recharger</Text>
@@ -166,7 +147,6 @@ const AirtelMoneyScreen = () => {
                 </View>
               </View>
 
-              {/* Gestion */}
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Gestion</Text>
                 <TouchableOpacity style={styles.actionButton}>
@@ -183,16 +163,12 @@ const AirtelMoneyScreen = () => {
                 </TouchableOpacity>
               </View>
 
-              {/* Bénéficiaires */}
-              <View style={styles.section}>
+              <View style={styles.section}> 
                 <Text style={styles.sectionTitle}>Bénéficiaires</Text>
-                <TouchableOpacity style={styles.actionButton}>
+
+                <TouchableOpacity onPress={handleNavigateToBeneficiaries} style={styles.actionButton}>
                   <Ionicons name="folder" size={20} color="#fff" />
                   <Text style={styles.buttonText}>Mes bénéficiaires</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton}>
-                  <Ionicons name="person-add" size={20} color="#fff" />
-                  <Text style={styles.buttonText}>Ajouter un bénéficiaire</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
