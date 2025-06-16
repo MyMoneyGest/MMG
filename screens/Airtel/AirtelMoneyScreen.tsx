@@ -140,6 +140,8 @@ const AirtelMoneyScreen = () => {
                     <MaterialIcons name="add-circle-outline" size={20} color="#fff" />
                     <Text style={styles.buttonText}>Recharger</Text>
                   </TouchableOpacity>
+                  Alert.alert('Succès', 'Bénéficiaire mis à jour avec succès.');
+                      navigation.navigate('AirtelBeneficiairesScreen');
                   <TouchableOpacity style={styles.operationButton}>
                     <FontAwesome5 name="money-bill-wave" size={20} color="#fff" />
                     <Text style={styles.buttonText}>Retirer</Text>

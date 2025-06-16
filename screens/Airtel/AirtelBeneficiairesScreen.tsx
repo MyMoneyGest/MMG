@@ -18,16 +18,22 @@ import {
   orderBy,
   doc,
   deleteDoc,
+  updateDoc,
 } from 'firebase/firestore';
 import { db } from '../../services/firebaseConfig';
+import { RootStackParamList } from '../../navigation/AppNavigator'
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useNavigation } from '@react-navigation/native';
 
 const AirtelBeneficiariesScreen = () => {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const user = getAuth().currentUser;
   const [beneficiaries, setBeneficiaries] = useState<any[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [operator, setOperator] = useState('Airtel');
+  const [editId, setEditId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -43,27 +49,42 @@ const AirtelBeneficiariesScreen = () => {
     return () => unsubscribe();
   }, [user]);
 
-  const handleAdd = async () => {
+  const handleAddOrUpdate = async () => {
     if (!name || !phone) {
       Alert.alert('Erreur', 'Tous les champs sont obligatoires.');
       return;
     }
 
     try {
-      await addDoc(collection(db, 'users', user!.uid, 'beneficiaries'), {
-        name,
-        phone,
-        operator,
-        createdAt: new Date(),
-      });
+      if (editId) {
+        const ref = doc(db, 'users', user!.uid, 'beneficiaries', editId);
+        await updateDoc(ref, {
+          name,
+          phone,
+          operator,
+        });
+      } else {
+        await addDoc(collection(db, 'users', user!.uid, 'beneficiaries'), {
+          name,
+          phone,
+          operator,
+          createdAt: new Date(),
+        });
+      }
       setName('');
       setPhone('');
       setOperator('Airtel');
+      setEditId(null);
       setModalVisible(false);
-    } catch (e) {
+    } catch (e) 
+    
+    {
       console.error(e);
-      Alert.alert('Erreur', 'Impossible d\'ajouter ce bénéficiaire.');
+      Alert.alert('Erreur', `Impossible de ${editId ? 'mettre à jour' : 'ajouter'} ce bénéficiaire.`);
     }
+
+    Alert.alert('Succès', 'Bénéficiaire mis à jour avec succès.');
+    navigation.navigate('AirtelBeneficiairesScreen');
   };
 
   const handleDelete = async (id: string) => {
@@ -74,6 +95,8 @@ const AirtelBeneficiariesScreen = () => {
       Alert.alert('Erreur', 'Impossible de supprimer.');
     }
   };
+  
+  const [successMessage, setSuccessMessage] = useState('');
 
   const renderItem = ({ item }: { item: any }) => (
     <View style={styles.beneficiaryItem}>
@@ -81,10 +104,36 @@ const AirtelBeneficiariesScreen = () => {
         <Text style={styles.name}>{item.name}</Text>
         <Text>{item.phone}</Text>
         <Text style={styles.operator}>{item.operator}</Text>
+
+        <TouchableOpacity onPress={() => {
+          setName(item.name);
+          setPhone(item.phone);
+          setOperator(item.operator || 'Airtel');
+          setEditId(item.id);
+          setModalVisible(true);
+        }}>
+          <Text style={styles.edit}>Modifier</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() =>
+            Alert.alert(
+              'Confirmer la suppression',
+              'Voulez-vous vraiment supprimer ce bénéficiaire ?',
+              [
+                { text: 'Annuler', style: 'cancel' },
+                {
+                  text: 'Supprimer',
+                  style: 'destructive',
+                  onPress: () => handleDelete(item.id),
+                },
+              ]
+            )
+          }
+        >
+          <Text style={styles.delete}>Supprimer</Text>
+        </TouchableOpacity>
+
       </View>
-      <TouchableOpacity onPress={() => handleDelete(item.id)}>
-        <Text style={styles.delete}>Supprimer</Text>
-      </TouchableOpacity>
     </View>
   );
 
@@ -92,7 +141,13 @@ const AirtelBeneficiariesScreen = () => {
     <View style={styles.container}>
       <View style={styles.headerRow}>
         <Text style={styles.title}>Mes bénéficiaires</Text>
-        <TouchableOpacity onPress={() => setModalVisible(true)}>
+        <TouchableOpacity onPress={() => {
+          setEditId(null);
+          setName('');
+          setPhone('');
+          setOperator('Airtel');
+          setModalVisible(true);
+        }}>
           <Text style={styles.addButton}>+ Ajouter</Text>
         </TouchableOpacity>
       </View>
@@ -104,11 +159,15 @@ const AirtelBeneficiariesScreen = () => {
         contentContainerStyle={styles.listContent}
       />
 
-      {/* Modal */}
       <Modal visible={modalVisible} transparent animationType="slide">
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Ajouter un bénéficiaire</Text>
+              {successMessage !== '' && (
+                <Text style={{ color: '#388E3C', marginBottom: 10, textAlign: 'center', fontWeight: '600' }}>
+                  {successMessage}
+                </Text>
+              )}
+            <Text style={styles.modalTitle}>{editId ? 'Modifier le bénéficiaire' : 'Ajouter un bénéficiaire'}</Text>
             <TextInput
               placeholder="Nom complet"
               value={name}
@@ -128,12 +187,15 @@ const AirtelBeneficiariesScreen = () => {
               onChangeText={setOperator}
               style={styles.input}
             />
-            <TouchableOpacity style={styles.button} onPress={handleAdd}>
-              <Text style={styles.buttonText}>Ajouter</Text>
-            </TouchableOpacity>
+            <TouchableOpacity style={styles.button} onPress={handleAddOrUpdate}>
+              <Text style={styles.buttonText}>{editId ? 'Mettre à jour' : 'Ajouter'}</Text>
+           </TouchableOpacity>
             <TouchableOpacity
               style={[styles.button, { backgroundColor: '#B71C1C' }]}
-              onPress={() => setModalVisible(false)}
+              onPress={() => {
+                setModalVisible(false);
+                setEditId(null);
+              }}
             >
               <Text style={styles.buttonText}>Annuler</Text>
             </TouchableOpacity>
@@ -153,7 +215,7 @@ const styles = StyleSheet.create({
   addButton: { fontSize: 16, color: '#00796B', fontWeight: 'bold' },
   listContent: { paddingVertical: 20 },
   beneficiaryItem: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     justifyContent: 'space-between',
     padding: 15,
     backgroundColor: '#fff',
@@ -166,7 +228,8 @@ const styles = StyleSheet.create({
   },
   name: { fontWeight: 'bold', fontSize: 16 },
   operator: { color: '#00796B', fontSize: 12, marginTop: 4 },
-  delete: { color: '#B71C1C', fontWeight: 'bold' },
+  edit: { color: '#00796B', fontWeight: 'bold', marginTop: 8 },
+  delete: { color: '#B71C1C', fontWeight: 'bold', marginTop: 4 },
   modalContainer: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',

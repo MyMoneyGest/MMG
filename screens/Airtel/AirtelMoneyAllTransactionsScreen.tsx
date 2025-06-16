@@ -18,6 +18,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 type AirtelMoneyAllTransactionsAirtelProp = NativeStackNavigationProp<RootStackParamList, 'AirtelMoneyAllTransactions'>;
 
 const AirtelMoneyAllTransactions = () => {
+  const [username, setUsername] = useState('');
   const navigation = useNavigation<AirtelMoneyAllTransactionsAirtelProp>();
   const [searchQuery, setSearchQuery] = useState('');
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -63,7 +64,7 @@ const AirtelMoneyAllTransactions = () => {
     ? `TXN${String(item.generatedId).padStart(5, '0')}`
     : 'Réf-0000';
 
-  const sender = item.sender || 'Vous';
+  const sender = item.sender || {username};
   const receiver = item.receiver || (item.vaultName ? `Coffre ${item.vaultName}` : 'Destinataire inconnu');
 
   const completeTransaction = {

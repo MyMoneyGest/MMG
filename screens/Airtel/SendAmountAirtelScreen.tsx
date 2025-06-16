@@ -18,6 +18,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'SendAmountA
 const SendAmountAirtelScreen = () => {
   const route = useRoute<SendAmountAirtelScreenRouteProp>();
   const navigation = useNavigation<NavigationProp>();
+  const [airtelBalance, setAirtelBalance] = useState<number | null>(null);
 
   const { beneficiary } = route.params;
   const [amount, setAmount] = useState('');
@@ -38,6 +39,15 @@ const SendAmountAirtelScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+
+      <View style={styles.headerRow}>
+          {airtelBalance !== null && (
+            <Text style={styles.balanceSmall}>
+              💰 {airtelBalance.toLocaleString()} FCFA
+            </Text>
+          )}
+      </View>
+
       <Text style={styles.title}>Envoyer à {beneficiary.name}</Text>
 
       <TextInput
@@ -70,6 +80,7 @@ export default SendAmountAirtelScreen;
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: '#fff' },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   title: { fontSize: 20, fontWeight: 'bold', marginBottom: 20 },
   input: {
     borderBottomWidth: 1,
@@ -89,5 +100,10 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#fff',
     fontWeight: 'bold',
+  },
+  balanceSmall: {
+  fontSize: 14,
+  color: '#00796B',
+  fontWeight: '600',
   },
 });

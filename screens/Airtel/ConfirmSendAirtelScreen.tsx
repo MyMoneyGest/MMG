@@ -15,13 +15,16 @@ import { auth, db } from '../../services/firebaseConfig';
 import { doc, runTransaction } from 'firebase/firestore';
 import { EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 
+
+type Vault = {
+  name: string;
+}
+
 const ConfirmSendScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  //const route = useRoute();
   const route = useRoute<RouteProp<RootStackParamList, 'ConfirmSendAirtelScreen'>>();
   const { beneficiary, amount } = route.params as { beneficiary: any; amount: number };
-
-  //const { beneficiary, amount } = route.params;
+  const [airtelBalance, setAirtelBalance] = useState<number | null>(null);
 
 
   const [password, setPassword] = useState('');
@@ -84,6 +87,14 @@ const ConfirmSendScreen = () => {
 
   return (
     <View style={styles.container}>
+      <View style={styles.headerRow}>
+      <Text style={styles.title}>{}</Text>
+      {airtelBalance !== null && (
+        <Text style={styles.balanceSmall}>
+          💰 {airtelBalance.toLocaleString()} FCFA
+        </Text>
+      )}
+        </View>
       <Text style={styles.title}>Confirmer l'envoi</Text>
       <Text style={styles.label}>Bénéficiaire :</Text>
       <Text style={styles.value}>{beneficiary.name} - {beneficiary.phone}</Text>
@@ -111,6 +122,7 @@ export default ConfirmSendScreen;
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: '#F5F5F5' },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   title: { fontSize: 22, fontWeight: 'bold', marginBottom: 20 },
   label: { fontSize: 16, fontWeight: '600', marginTop: 10 },
   value: { fontSize: 16, marginBottom: 10 },
@@ -130,4 +142,9 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   buttonText: { color: '#fff', fontWeight: 'bold' },
+  balanceSmall: {
+  fontSize: 14,
+  color: '#00796B',
+  fontWeight: '600',
+  },
 });
