@@ -111,10 +111,7 @@ const TransactionDetailScreen = () => {
         <TouchableOpacity style={styles.printButton} onPress={printPDF}>
           <Text style={styles.printButtonText}>Imprimer en PDF</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.backButtonText}>Retour</Text>
-        </TouchableOpacity>
+        
       </ScrollView>
     </SafeAreaView>
   );

@@ -87,12 +87,6 @@ const AirtelSendMoneyScreen = () => {
           ))
         )}
       </ScrollView>
-
-      <View style={[styles.returnWrapper, { paddingBottom: insets.bottom }]}>
-        <TouchableOpacity style={styles.returnButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.returnText}>Retour</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 };

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, Alert, ActivityIndicator, Platform, Image
+  StyleSheet, Alert, ActivityIndicator, Platform, Image,ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getDoc, doc, updateDoc, Timestamp } from 'firebase/firestore';
@@ -175,6 +175,8 @@ const ProfileScreen = () => {
   return (
     <LinearGradient colors={['#A8E6CF', '#00BCD4']} style={styles.container}>
       <View style={styles.card}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+
         <Text style={styles.label}>Email</Text>
         <TextInput style={[styles.input, styles.disabled]} value={email} editable={false} />
 
@@ -242,6 +244,7 @@ const ProfileScreen = () => {
             {uploading ? 'Téléversement...' : 'Changer la photo de profil'}
           </Text>
         </TouchableOpacity>
+        </ScrollView>
       </View>
     </LinearGradient>
   );
@@ -250,11 +253,12 @@ const ProfileScreen = () => {
 export default ProfileScreen;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 20 },
-  card: { backgroundColor: '#ffffffcc', padding: 20, borderRadius: 10 },
+  container: { flex: 1, justifyContent: 'center', padding: 2 },
+  card: { backgroundColor: '#ffffffcc', padding: 5, borderRadius: 10 },
   label: { fontWeight: 'bold', marginTop: 10, marginBottom: 4 },
   input: { backgroundColor: '#f5f5f5', borderRadius: 8, padding: 10 },
   disabled: { backgroundColor: '#e0e0e0' },
+  scrollContent: { padding: 20 },
   button: {
     backgroundColor: '#00796B',
     marginTop: 20,

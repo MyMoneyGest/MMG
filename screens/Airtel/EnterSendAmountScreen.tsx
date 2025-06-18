@@ -1,100 +1,126 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, FlatList, SafeAreaView
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  SafeAreaView,
+  Alert,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { auth, db } from '../../services/firebaseConfig';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/navigation/AppNavigator';
 
-const AirtelSendMoneyScreen = () => {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const user = auth.currentUser;
-  const [beneficiaries, setBeneficiaries] = useState<any[]>([]);
-  const [airtelBalance, setAirtelBalance] = useState<number>(0);
+type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'EnterSendAmountScreen'>;
+type RouteParams = {
+  beneficiary: {
+    name?: string;
+    phone: string;
+  };
+};
 
-  useEffect(() => {
-    if (!user) return;
+const EnterSendAmountScreen = () => {
+  const navigation = useNavigation<NavigationProp>();
+  const route = useRoute();
+  const { beneficiary } = route.params as RouteParams;
 
-    const benRef = doc(db, 'users', user.uid, 'linkedAccounts', 'airtel');
-    const unsubscribe = onSnapshot(benRef, (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        setAirtelBalance(data.airtelBalance || 0);
-        setBeneficiaries(data.beneficiaries || []);
-      }
+  const [amount, setAmount] = useState('');
+  const [reason, setReason] = useState('');
+
+  const handleContinue = () => {
+    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
+      Alert.alert('Erreur', 'Veuillez saisir un montant valide.');
+      return;
+    }
+
+    navigation.navigate('ConfirmSendAirtelScreen', {
+      beneficiary,
+      amount: parseInt(amount),
+      reason,
     });
-
-    return () => unsubscribe();
-  }, []);
-
-  const handleSelectBeneficiary = (beneficiary: any) => {
-    navigation.navigate('SendAmountAirtelScreen', { beneficiary });
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Envoyer de l’argent</Text>
+        <Text style={styles.title}>Montant & Motif</Text>
       </View>
 
-      <Text style={styles.balance}>Solde Airtel : {airtelBalance.toLocaleString()} FCFA</Text>
-
-      <Text style={styles.subtitle}>Choisissez un bénéficiaire :</Text>
-
-      <FlatList
-  data={beneficiaries}
-  keyExtractor={(item, index) => `${item.phone}-${index}`}
-  renderItem={({ item }) => (
-    <TouchableOpacity
-      style={styles.beneficiaryItem}
-      onPress={() => handleSelectBeneficiary(item)}
-    >
-      <Text style={styles.beneficiaryText}>
-        {item.name} ({item.phone})
+      <Text style={styles.label}>Envoyer à :</Text>
+      <Text style={styles.beneficiary}>
+        {beneficiary?.name || 'Bénéficiaire'} ({beneficiary?.phone})
       </Text>
-    </TouchableOpacity>
-  )}
-  ListEmptyComponent={
-    <Text style={{ textAlign: 'center', marginTop: 30, color: '#888' }}>
-      Aucun bénéficiaire trouvé.
-    </Text>
-  }
-/>
+
+      <TextInput
+        style={styles.input}
+        placeholder="Montant à envoyer"
+        keyboardType="numeric"
+        value={amount}
+        onChangeText={setAmount}
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder="Motif (facultatif)"
+        value={reason}
+        onChangeText={setReason}
+      />
+
+      <TouchableOpacity style={styles.button} onPress={handleContinue}>
+        <Text style={styles.buttonText}>Continuer</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 };
 
-export default AirtelSendMoneyScreen;
+export default EnterSendAmountScreen;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: '#F0F0F0' },
-  balance: { fontSize: 16, marginBottom: 10 },
-  subtitle: { fontSize: 16, fontWeight: '600', marginVertical: 10 },
-  beneficiaryItem: {
-    padding: 12,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  beneficiaryText: {
-    fontSize: 16,
+  container: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: '#E0F2F1',
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    backgroundColor: '#ffffffcc',
+    paddingBottom: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#00796B',
+    borderColor: '#00796B',
+    marginBottom: 20,
   },
   title: {
-    fontSize: 20,
-    color: '#00796B',
+    fontSize: 22,
     fontWeight: 'bold',
-    flex: 1,
+    color: '#00796B',
     textAlign: 'center',
+  },
+  label: {
+    fontSize: 16,
+    marginBottom: 8,
+    fontWeight: '600',
+  },
+  beneficiary: {
+    fontSize: 18,
+    marginBottom: 20,
+    color: '#004D40',
+  },
+  input: {
+    backgroundColor: '#ffffff',
+    padding: 14,
+    borderRadius: 8,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#00796B',
+  },
+  button: {
+    backgroundColor: '#00796B',
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  buttonText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
   },
 });

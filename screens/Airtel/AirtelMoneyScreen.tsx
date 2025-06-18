@@ -140,8 +140,7 @@ const AirtelMoneyScreen = () => {
                     <MaterialIcons name="add-circle-outline" size={20} color="#fff" />
                     <Text style={styles.buttonText}>Recharger</Text>
                   </TouchableOpacity>
-                  Alert.alert('Succès', 'Bénéficiaire mis à jour avec succès.');
-                      navigation.navigate('AirtelBeneficiairesScreen');
+
                   <TouchableOpacity style={styles.operationButton}>
                     <FontAwesome5 name="money-bill-wave" size={20} color="#fff" />
                     <Text style={styles.buttonText}>Retirer</Text>
@@ -174,12 +173,7 @@ const AirtelMoneyScreen = () => {
                 </TouchableOpacity>
               </View>
             </ScrollView>
-
-            <View style={[styles.returnButtonWrapper, { paddingBottom: insets.bottom }]}>
-              <TouchableOpacity style={styles.returnButton} onPress={() => navigation.goBack()}>
-                <Text style={styles.buttonText}>Retour</Text>
-              </TouchableOpacity>
-            </View>
+            
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -254,8 +248,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between' },
   buttonText: { color: '#fff', fontWeight: 'bold' },
   returnButtonWrapper: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
+    paddingHorizontal: 40,
+    paddingTop: 1,
     backgroundColor: 'transparent',
   },
   returnButton: {
