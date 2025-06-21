@@ -24,6 +24,8 @@ import { db } from '../../services/firebaseConfig';
 import { RootStackParamList } from '../../navigation/AppNavigator'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
+import { getDocs, where } from 'firebase/firestore';
+import { getDoc } from 'firebase/firestore';
 
 const AirtelBeneficiariesScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -49,43 +51,61 @@ const AirtelBeneficiariesScreen = () => {
     return () => unsubscribe();
   }, [user]);
 
-  const handleAddOrUpdate = async () => {
-    if (!name || !phone) {
-      Alert.alert('Erreur', 'Tous les champs sont obligatoires.');
-      return;
+const handleAddOrUpdate = async () => {
+  if (!name || !phone) {
+    Alert.alert('Erreur', 'Tous les champs sont obligatoires.');
+    return;
+  }
+
+  try {
+    let linkedUid: string | null = null;
+
+    // Étape 1 : récupérer tous les utilisateurs
+    const usersSnap = await getDocs(collection(db, 'users'));
+
+    for (const userDoc of usersSnap.docs) {
+      const uid = userDoc.id;
+      const airtelRef = doc(db, 'users', uid, 'linkedAccounts', 'airtel');
+      const airtelSnap = await getDoc(airtelRef);
+
+      if (airtelSnap.exists()) {
+        const data = airtelSnap.data();
+        if (data.phoneNumber === phone) {
+          linkedUid = uid;
+          break;
+        }
+      }
     }
 
-    try {
-      if (editId) {
-        const ref = doc(db, 'users', user!.uid, 'beneficiaries', editId);
-        await updateDoc(ref, {
-          name,
-          phone,
-          operator,
-        });
-      } else {
-        await addDoc(collection(db, 'users', user!.uid, 'beneficiaries'), {
-          name,
-          phone,
-          operator,
-          createdAt: new Date(),
-        });
-      }
-      setName('');
-      setPhone('');
-      setOperator('Airtel');
-      setEditId(null);
-      setModalVisible(false);
-    } catch (e) 
-    
-    {
-      console.error(e);
-      Alert.alert('Erreur', `Impossible de ${editId ? 'mettre à jour' : 'ajouter'} ce bénéficiaire.`);
+    const payload = {
+      name,
+      phone,
+      operator,
+      linkedUid, // 🔗 UID si trouvé, null sinon
+      createdAt: new Date(),
+    };
+
+    if (editId) {
+      const ref = doc(db, 'users', user!.uid, 'beneficiaries', editId);
+      await updateDoc(ref, payload);
+    } else {
+      await addDoc(collection(db, 'users', user!.uid, 'beneficiaries'), payload);
     }
+
+    setName('');
+    setPhone('');
+    setOperator('Airtel');
+    setEditId(null);
+    setModalVisible(false);
 
     Alert.alert('Succès', 'Bénéficiaire mis à jour avec succès.');
     navigation.navigate('AirtelBeneficiairesScreen');
-  };
+  } catch (e) {
+    console.error(e);
+    Alert.alert('Erreur', `Impossible de ${editId ? 'mettre à jour' : 'ajouter'} ce bénéficiaire.`);
+  }
+};
+
 
   const handleDelete = async (id: string) => {
     try {
@@ -104,6 +124,12 @@ const AirtelBeneficiariesScreen = () => {
         <Text style={styles.name}>{item.name}</Text>
         <Text>{item.phone}</Text>
         <Text style={styles.operator}>{item.operator}</Text>
+
+        {item.linkedUid ? (
+          <Text style={styles.badgeMMG}>✅ Utilisateur MyMoneyGest</Text>
+        ) : (
+          <Text style={styles.badgeNonMMG}>Non inscrit MMG</Text>
+        )}
 
         <TouchableOpacity onPress={() => {
           setName(item.name);
@@ -255,4 +281,18 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   buttonText: { color: '#fff', fontWeight: 'bold' },
+
+  badgeMMG: {
+    marginTop: 4,
+    color: '#388E3C',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+
+  badgeNonMMG: {
+    marginTop: 4,
+    color: '#999',
+    fontSize: 13,
+    fontStyle: 'italic',
+  },
 });

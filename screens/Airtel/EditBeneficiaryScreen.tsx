@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Alert,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -14,34 +15,59 @@ import { RootStackParamList } from '@/navigation/AppNavigator';
 import { auth, db } from '../../services/firebaseConfig';
 import { doc, updateDoc } from 'firebase/firestore';
 
+type Beneficiary = {
+  id: string;
+  name: string;
+  phone: string;
+};
+
 const EditBeneficiaryScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute();
   const user = auth.currentUser;
 
-  const { beneficiary } = route.params as { beneficiary: any };
+  const { beneficiary } = route.params as { beneficiary: Beneficiary };
+
   const [name, setName] = useState(beneficiary?.name || '');
   const [phone, setPhone] = useState(beneficiary?.phone || '');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const validatePhone = (phone: string) => {
+    const phoneRegex = /^[0-9]{8,15}$/; // adapte la regex selon ton besoin
+    return phoneRegex.test(phone.trim());
+  };
 
   const handleSave = async () => {
-    if (!user || !name.trim() || !phone.trim()) {
-      Alert.alert('Erreur', 'Veuillez remplir tous les champs.');
+    if (!user) {
+      Alert.alert('Erreur', 'Utilisateur non connecté.');
+      return;
+    }
+
+    if (!name.trim() || name.trim().length < 2) {
+      Alert.alert('Erreur', 'Veuillez saisir un nom valide (au moins 2 caractères).');
+      return;
+    }
+
+    if (!validatePhone(phone)) {
+      Alert.alert('Erreur', 'Veuillez saisir un numéro de téléphone valide (8 à 15 chiffres).');
       return;
     }
 
     try {
+      setIsSaving(true);
       const benRef = doc(db, 'users', user.uid, 'beneficiaries', beneficiary.id);
       await updateDoc(benRef, {
-        name,
-        phone,
+        name: name.trim(),
+        phone: phone.trim(),
         updatedAt: new Date().toISOString(),
       });
-
       Alert.alert('Succès', 'Bénéficiaire mis à jour.');
       navigation.goBack();
     } catch (error) {
-      console.error(error);
-      Alert.alert('Erreur', "Échec de la mise à jour.");
+      console.error('Erreur mise à jour bénéficiaire:', error);
+      Alert.alert('Erreur', "Échec de la mise à jour. Veuillez réessayer.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -58,6 +84,8 @@ const EditBeneficiaryScreen = () => {
           value={name}
           onChangeText={setName}
           placeholder="Nom du bénéficiaire"
+          autoCapitalize="words"
+          editable={!isSaving}
         />
 
         <Text style={styles.label}>Téléphone</Text>
@@ -67,10 +95,21 @@ const EditBeneficiaryScreen = () => {
           onChangeText={setPhone}
           placeholder="Numéro de téléphone"
           keyboardType="phone-pad"
+          maxLength={15}
+          editable={!isSaving}
         />
 
-        <TouchableOpacity style={styles.button} onPress={handleSave}>
-          <Text style={styles.buttonText}>Sauvegarder</Text>
+        <TouchableOpacity
+          style={[styles.button, isSaving && styles.buttonDisabled]}
+          onPress={handleSave}
+          disabled={isSaving}
+          activeOpacity={0.8}
+        >
+          {isSaving ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Sauvegarder</Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -111,6 +150,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',
+  },
+  buttonDisabled: {
+    backgroundColor: '#4B9A8B',
   },
   buttonText: {
     color: '#fff',
