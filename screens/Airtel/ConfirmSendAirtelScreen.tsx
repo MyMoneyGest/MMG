@@ -1,4 +1,3 @@
-//ConfirmSendAirtelScreen
 import React, { useState } from 'react';
 import {
   View,
@@ -24,7 +23,6 @@ import {
   EmailAuthProvider,
   reauthenticateWithCredential,
 } from 'firebase/auth';
-//import { transferMoneyToUser } from './SendAmountAirtelScreen';
 
 const ConfirmSendScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -33,149 +31,163 @@ const ConfirmSendScreen = () => {
 
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-   const [failedAttempts, setFailedAttempts] = useState(0);
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [passwordError, setPasswordError] = useState(''); // <- pour afficher le message d'erreur sous le champ
 
   const handleSend = async () => {
-  const user = auth.currentUser;
-  if (!user || !user.email) return;
+    setPasswordError('');  // reset erreur à chaque tentative
 
-  if (!password) {
-    Alert.alert('Oups !', 'Veuillez saisir votre mot de passe');
-    return;
-  }
+    const user = auth.currentUser;
+    if (!user || !user.email) return;
 
-  const senderUid = user.uid;
-  const airtelRef = doc(db, 'users', senderUid, 'linkedAccounts', 'airtel');
-
-  try {
-    setIsLoading(true);
-
-    const credential = EmailAuthProvider.credential(user.email, password);
-    await reauthenticateWithCredential(user, credential);
-
-    const senderSnap = await getDoc(airtelRef);
-    if (!senderSnap.exists()) throw new Error('Compte Airtel introuvable');
-    const senderData = senderSnap.data();
-    const senderBalance = senderData.airtelBalance || 0;
-
-    if (amount > senderBalance) throw new Error('SOLDE_INSUFFISANT');
-
-    const userDoc = await getDoc(doc(db, 'users', user.uid));
-    const currentUserName = userDoc.exists() ? userDoc.data().name || 'sender.name' : 'Paul';
-
-    const reference = `TX-${Date.now()}`;
-    const now = new Date().toISOString();
-
-    if (beneficiary.linkedUid) {
-      // ✅ Cas B à un compte MMG
-      const receiverRef = doc(db, 'users', beneficiary.linkedUid, 'linkedAccounts', 'airtel');
-      
-      await runTransaction(db, async (transaction: { get: (arg0: DocumentReference<DocumentData, DocumentData>) => any; update: (arg0: DocumentReference<DocumentData, DocumentData>, arg1: { airtelBalance: any; transactions: any[]; }) => void; }) => {
-        const receiverSnap = await transaction.get(receiverRef);
-        if (!receiverSnap.exists()) throw new Error("Destinataire introuvable");
-
-        const receiverData = receiverSnap.data();
-        const receiverBalance = receiverData.airtelBalance || 0;
-
-        const senderTx = {
-          reference,
-          type: 'Virement émis',
-          amount: -amount,
-          date: now,
-          sender: 'Vous',
-          receiver: beneficiary.name,
-          status: 'Réussi',
-          reason,
-        };
-
-        const receiverTx = {
-          reference,
-          type: 'Virement reçu',
-          amount,
-          date: now,
-          sender: currentUserName,
-          receiver: 'Vous',
-          status: 'Réussi',
-          reason,
-        };
-
-        transaction.update(airtelRef, {
-          airtelBalance: senderBalance - amount,
-          transactions: [...(senderData.transactions || []), senderTx],
-        });
-
-        transaction.update(receiverRef, {
-          airtelBalance: receiverBalance + amount,
-          transactions: [...(receiverData.transactions || []), receiverTx],
-        });
-      });
-
-    } else {
-      // ❌ Cas B n’a pas de compte MMG
-      await runTransaction(db, async (transaction: { update: (arg0: DocumentReference<DocumentData, DocumentData>, arg1: { airtelBalance: number; transactions: any[]; }) => void; }) => {
-        const tx = {
-          reference,
-          type: 'Virement émis',
-          amount: -amount,
-          date: now,
-          sender: 'Vous',
-          receiver: `${beneficiary.name} - (${beneficiary.phone})`,
-          status: 'Réussi',
-          reason,
-        };
-
-        transaction.update(airtelRef, {
-          airtelBalance: senderBalance - amount,
-          transactions: [...(senderData.transactions || []), tx],
-        });
-      });
+    if (!password) {
+      setPasswordError('Veuillez saisir votre mot de passe');
+      return;
     }
 
-    Alert.alert('Succès', 'Virement effectué avec succès.');
-    navigation.navigate('AirtelMoney');
-      } catch (error: any) {
-            if (__DEV__) {
-              console.error('Erreur lors de la transaction :', error);
-            }
-  
-        const nextAttempts = failedAttempts + 1;
-        setFailedAttempts(nextAttempts);
-  
-        const isWrongPassword =
-          error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password';
-  
-        if (nextAttempts >= 5) {
-          Alert.alert(
-            'Trop de tentatives',
-            'Vous allez être redirigé vers la réinitialisation du mot de passe.',
-            [{ text: 'OK', onPress: () => navigation.navigate('ForgotPassword') }]
-          );
-          return;
-        }
-  
-        if (isWrongPassword) {
-          Alert.alert('Mot de passe incorrect', `Tentative ${nextAttempts} sur 5`);
-          return;
-        }
-        if (error.message === 'SOLDE_INSUFFISANT') {
-              Alert.alert('Erreur', 'Votre solde principal est insuffisant pour cette opération.');
-              return;
-            }
+    try {
+      setIsLoading(true);
 
-            if (error.message === 'COFFRE_INSUFFISANT') {
-              Alert.alert('Erreur', 'Le montant dépasse le solde disponible dans ce coffre.');
-              return;
-            }
+      const credential = EmailAuthProvider.credential(user.email, password);
+      await reauthenticateWithCredential(user, credential);
 
-            if (error.message?.startsWith('BLOQUÉ_JUSQUAU_')) {
-              const date = error.message.replace('BLOQUÉ_JUSQUAU_', '');
-              Alert.alert('Coffre bloqué', `Retrait possible à partir du ${date}.`);
-              return;
-            }
+      // Reset tentative d’erreur mot de passe après succès
+      setFailedAttempts(0);
 
-            Alert.alert('Erreur', 'Une erreur inattendue est survenue. Veuillez réessayer.');
-          }
-        };
+      const senderUid = user.uid;
+      const airtelRef = doc(db, 'users', senderUid, 'linkedAccounts', 'airtel');
+
+      const senderSnap = await getDoc(airtelRef);
+      if (!senderSnap.exists()) throw new Error('Compte Airtel introuvable');
+      const senderData = senderSnap.data();
+      const senderBalance = senderData.airtelBalance || 0;
+
+      if (amount > senderBalance) throw new Error('SOLDE_INSUFFISANT');
+
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      const currentUserName = userDoc.exists() ? userDoc.data().name || 'sender.name' : 'Paul';
+
+      const reference = `TX-${Date.now()}`;
+      const now = new Date().toISOString();
+
+      if (beneficiary.linkedUid) {
+        const receiverRef = doc(db, 'users', beneficiary.linkedUid, 'linkedAccounts', 'airtel');
+
+        await runTransaction(db, async (transaction: {
+          get: (arg0: DocumentReference<DocumentData, DocumentData>) => any;
+          update: (arg0: DocumentReference<DocumentData, DocumentData>, arg1: any) => void;
+        }) => {
+          const receiverSnap = await transaction.get(receiverRef);
+          if (!receiverSnap.exists()) throw new Error("Destinataire introuvable");
+
+          const receiverData = receiverSnap.data();
+          const receiverBalance = receiverData.airtelBalance || 0;
+
+          const senderTx = {
+            reference,
+            type: 'Virement émis',
+            amount: -amount,
+            date: now,
+            sender: 'Vous',
+            receiver: beneficiary.name,
+            status: 'Réussi',
+            reason,
+          };
+
+          const receiverTx = {
+            reference,
+            type: 'Virement reçu',
+            amount,
+            date: now,
+            sender: currentUserName,
+            receiver: 'Vous',
+            status: 'Réussi',
+            reason,
+          };
+
+          transaction.update(airtelRef, {
+            airtelBalance: senderBalance - amount,
+            transactions: [...(senderData.transactions || []), senderTx],
+          });
+
+          transaction.update(receiverRef, {
+            airtelBalance: receiverBalance + amount,
+            transactions: [...(receiverData.transactions || []), receiverTx],
+          });
+        });
+
+      } else {
+        await runTransaction(db, async (transaction: { update: (arg0: DocumentReference<DocumentData, DocumentData>, arg1: any) => void; }) => {
+          const tx = {
+            reference,
+            type: 'Virement émis',
+            amount: -amount,
+            date: now,
+            sender: 'Vous',
+            receiver: `${beneficiary.name} - (${beneficiary.phone})`,
+            status: 'Réussi',
+            reason,
+          };
+
+          transaction.update(airtelRef, {
+            airtelBalance: senderBalance - amount,
+            transactions: [...(senderData.transactions || []), tx],
+          });
+        });
+      }
+
+      Alert.alert('Succès', 'Virement effectué avec succès.');
+      navigation.navigate('AirtelMoney');
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error('Erreur lors de la transaction :', error);
+      }
+
+      const nextAttempts = failedAttempts + 1;
+      setFailedAttempts(nextAttempts);
+
+      const isWrongPassword =
+        error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password';
+
+      if (nextAttempts >= 5) {
+        Alert.alert(
+          'Trop de tentatives',
+          'Vous allez être redirigé vers la réinitialisation du mot de passe.',
+          [{ text: 'OK', onPress: () => navigation.navigate('ForgotPassword') }]
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      if (isWrongPassword) {
+        setPasswordError(`Mot de passe incorrect (tentative ${nextAttempts} sur 5)`);
+        setIsLoading(false);
+        return;
+      }
+
+      if (error.message === 'SOLDE_INSUFFISANT') {
+        Alert.alert('Erreur', 'Votre solde principal est insuffisant pour cette opération.');
+        setIsLoading(false);
+        return;
+      }
+
+      if (error.message === 'COFFRE_INSUFFISANT') {
+        Alert.alert('Erreur', 'Le montant dépasse le solde disponible dans ce coffre.');
+        setIsLoading(false);
+        return;
+      }
+
+      if (error.message?.startsWith('BLOQUÉ_JUSQUAU_')) {
+        const date = error.message.replace('BLOQUÉ_JUSQUAU_', '');
+        Alert.alert('Coffre bloqué', `Retrait possible à partir du ${date}.`);
+        setIsLoading(false);
+        return;
+      }
+
+      Alert.alert('Erreur', 'Une erreur inattendue est survenue. Veuillez réessayer.');
+      setIsLoading(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -193,15 +205,19 @@ const ConfirmSendScreen = () => {
 
       <Text style={styles.label}>Mot de passe :</Text>
       <TextInput
-        style={styles.input}
+        style={[styles.input, passwordError ? styles.inputError : null]}
         placeholder="Votre mot de passe"
         secureTextEntry
         value={password}
-        onChangeText={setPassword}
+        onChangeText={text => {
+          setPassword(text);
+          if (passwordError) setPasswordError('');
+        }}
       />
+      {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
 
       <TouchableOpacity
-        style={styles.button}
+        style={[styles.button, isLoading && styles.buttonDisabled]}
         onPress={handleSend}
         disabled={isLoading}
       >
@@ -228,6 +244,14 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginTop: 5,
   },
+  inputError: {
+    borderColor: 'red',
+  },
+  errorText: {
+    color: 'red',
+    marginTop: 5,
+    fontSize: 14,
+  },
   button: {
     backgroundColor: '#00796B',
     padding: 15,
@@ -235,9 +259,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 20,
   },
+  buttonDisabled: {
+    backgroundColor: '#004D40',
+  },
   buttonText: { color: '#fff', fontWeight: 'bold' },
-});
-
-function setFailedAttempts(nextAttempts: any) {
-  throw new Error('Function not implemented.');
-}
+})
+;
