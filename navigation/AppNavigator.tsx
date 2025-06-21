@@ -18,9 +18,10 @@ import VaultDetailsScreen from '../screens/Airtel/VaultDetailsScreen';
 import ConfirmSendAirtelScreen from '../screens/Airtel/ConfirmSendAirtelScreen';
 import SendAmountAirtelScreen from '../screens/Airtel/SendAmountAirtelScreen';
 import AirtelSendMoneyScreen from '../screens/Airtel/AirtelSendMoneyScreen';
-import AirtelBeneficiairesScreen from '../screens/Airtel/AirtelBeneficiairesScreen';
 import EnterSendAmountScreen from '../screens/Airtel/EnterSendAmountScreen';
 import TransactionDetailScreen from '../screens/Airtel/TransactionDetailScreen';
+import AirtelBeneficiairesScreen from '../screens/Airtel/AirtelBeneficiairesScreen';
+import EditBeneficiaryScreen from '../screens/Airtel/EditBeneficiaryScreen';
 
 export type RootStackParamList = {
   // ...autres écrans
@@ -55,6 +56,14 @@ export type RootStackParamList = {
   LinkAirtelScreen: undefined;
   AirtelSendMoneyScreen : undefined;
   AirtelBeneficiairesScreen: undefined ;
+  EditBeneficiaryScreen: {
+  beneficiary: {
+    id: string;
+    name: string;
+    phone: string;
+    [key: string]: any;
+  };
+};
   TransactionDetailLibertis: { transaction: Transaction };
   ConfirmSendAirtelScreen: {
   beneficiary: any; // ou un type spécifique comme { name: string; phone: string }
@@ -112,8 +121,10 @@ const AppNavigator = ({ initialRoute }: AppNavigatorProps) => {
       <Stack.Screen name="TransactionDetailLibertis" component={TransactionDetailLibertisScreen} />
       <Stack.Screen name="ConfirmSendAirtelScreen" component={ConfirmSendAirtelScreen} />
       <Stack.Screen name="SendAmountAirtelScreen" component={SendAmountAirtelScreen} />
-      <Stack.Screen name="EnterSendAmountScreen" component={EnterSendAmountScreen} />
+      
       <Stack.Screen name="AirtelBeneficiairesScreen" component={AirtelBeneficiairesScreen} />
+      <Stack.Screen name="EnterSendAmountScreen" component={EnterSendAmountScreen} />
+      <Stack.Screen name="EditBeneficiaryScreen" component={EditBeneficiaryScreen} />
     </Stack.Navigator>
   );
 };

@@ -56,7 +56,7 @@ const LinkAirtelScreen = () => {
         ]
       });
 
-      Alert.alert('Succès', 'Votre compte Airtel est désormais lié.');
+      Alert.alert('Succès', 'Votre compte Airtel Money est désormais lié.');
       navigation.navigate('AirtelMoney');
     } catch (error) {
       console.error('Erreur Firestore :', error);

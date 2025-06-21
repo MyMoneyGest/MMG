@@ -11,7 +11,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/AppNavigator';
+import { RootStackParamList } from '../../navigation/AppNavigator';
 
 type LibertisTransactionsScreenProp = NativeStackNavigationProp<RootStackParamList,'LibertisTransactions'>;
 
@@ -125,13 +125,6 @@ const LibertisTransactions = () => {
   contentContainerStyle={styles.listContent}
   showsVerticalScrollIndicator={false}
 />
-
-
-      <View style={[styles.returnButtonWrapper, { paddingBottom: insets.bottom }]}>
-        <TouchableOpacity style={styles.returnButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.buttonText}>Retour</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 };

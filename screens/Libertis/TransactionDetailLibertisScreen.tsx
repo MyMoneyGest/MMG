@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
-import { RootStackParamList } from '../navigation/AppNavigator';
+import { RootStackParamList } from '../../navigation/AppNavigator';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Print from 'expo-print';
 
@@ -94,10 +94,6 @@ const TransactionDetailLibertisScreen = () => {
 
         <TouchableOpacity style={styles.printButton} onPress={printPDF}>
           <Text style={styles.printButtonText}>Imprimer en PDF</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.backButtonText}>Retour</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

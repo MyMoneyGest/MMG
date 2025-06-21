@@ -9,7 +9,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
-import { RootStackParamList } from '../navigation/AppNavigator';
+import { RootStackParamList } from '../../navigation/AppNavigator';
 import { Ionicons } from '@expo/vector-icons';
 
 type HomeScreenProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;

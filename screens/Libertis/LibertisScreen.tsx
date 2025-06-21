@@ -167,12 +167,6 @@ const LibertisScreen = () => {
                 </TouchableOpacity>
               </View>
             </ScrollView>
-
-            <View style={[styles.returnButtonWrapper, { paddingBottom: insets.bottom }]}>
-              <TouchableOpacity style={styles.returnButton} onPress={() => navigation.goBack()}>
-                <Text style={styles.buttonText}>Retour</Text>
-              </TouchableOpacity>
-            </View>
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>

@@ -87,6 +87,7 @@ const AirtelSendMoneyScreen = () => {
           ))
         )}
       </ScrollView>
+      
     </SafeAreaView>
   );
 };
