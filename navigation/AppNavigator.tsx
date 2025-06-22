@@ -22,6 +22,7 @@ import EnterSendAmountScreen from '../screens/Airtel/EnterSendAmountScreen';
 import TransactionDetailScreen from '../screens/Airtel/TransactionDetailScreen';
 import AirtelBeneficiairesScreen from '../screens/Airtel/AirtelBeneficiairesScreen';
 import EditBeneficiaryScreen from '../screens/Airtel/EditBeneficiaryScreen';
+import NotificationsScreen from '../screens/Airtel/NotificationsScreen';
 
 export type RootStackParamList = {
   // ...autres écrans
@@ -56,6 +57,7 @@ export type RootStackParamList = {
   LinkAirtelScreen: undefined;
   AirtelSendMoneyScreen : undefined;
   AirtelBeneficiairesScreen: undefined ;
+  NotificationsScreen : undefined;
   EditBeneficiaryScreen: {
   beneficiary: {
     id: string;
@@ -85,12 +87,13 @@ export type RootStackParamList = {
 export type Transaction = {
   id: string;
   type: string;
-  amount: string;
+  amount: number;
   date: string;
   reference: string;
   status: string;
   sender: string;         // 👈 nouvel attribut
   receiver: string;       // 👈 nouvel attribut
+  reason?: string;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -121,10 +124,11 @@ const AppNavigator = ({ initialRoute }: AppNavigatorProps) => {
       <Stack.Screen name="TransactionDetailLibertis" component={TransactionDetailLibertisScreen} />
       <Stack.Screen name="ConfirmSendAirtelScreen" component={ConfirmSendAirtelScreen} />
       <Stack.Screen name="SendAmountAirtelScreen" component={SendAmountAirtelScreen} />
-      
+
       <Stack.Screen name="AirtelBeneficiairesScreen" component={AirtelBeneficiairesScreen} />
       <Stack.Screen name="EnterSendAmountScreen" component={EnterSendAmountScreen} />
       <Stack.Screen name="EditBeneficiaryScreen" component={EditBeneficiaryScreen} />
+      <Stack.Screen name="NotificationsScreen" component={NotificationsScreen} />
     </Stack.Navigator>
   );
 };

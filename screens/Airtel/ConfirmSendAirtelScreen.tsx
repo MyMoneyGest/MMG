@@ -1,3 +1,4 @@
+//ConfirmSendAirtelScreen
 import React, { useState } from 'react';
 import {
   View,
@@ -12,6 +13,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { auth, db } from '../../services/firebaseConfig';
+import { collection, addDoc } from 'firebase/firestore'; // en haut si ce n'est pas encore importé
 import {
   doc,
   DocumentData,
@@ -114,6 +116,13 @@ const ConfirmSendScreen = () => {
             airtelBalance: receiverBalance + amount,
             transactions: [...(receiverData.transactions || []), receiverTx],
           });
+          const notifRef = collection(db, 'users', beneficiary.linkedUid, 'notifications');
+          await addDoc(notifRef, {
+            title: 'Virement reçu',
+            message: `Vous avez reçu ${amount.toLocaleString()} FCFA de ${currentUserName}.`,
+            date: new Date().toISOString(),
+            read: false,
+          });
         });
 
       } else {
@@ -137,7 +146,23 @@ const ConfirmSendScreen = () => {
       }
 
       Alert.alert('Succès', 'Virement effectué avec succès.');
-      navigation.navigate('AirtelMoney');
+      setTimeout(() => {
+        navigation.replace('TransactionDetail', {
+          transaction: {
+            reference,
+            type: 'Virement émis',
+            amount: -amount,
+            date: new Date().toISOString(),
+            sender: 'Vous',
+            receiver: beneficiary.name,
+            status: 'Réussi',
+            reason,
+            id: ''
+          },
+        });
+      }, 200);
+
+
     } catch (error: any) {
       if (__DEV__) {
         console.error('Erreur lors de la transaction :', error);
@@ -263,5 +288,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#004D40',
   },
   buttonText: { color: '#fff', fontWeight: 'bold' },
-})
+}
+)
 ;

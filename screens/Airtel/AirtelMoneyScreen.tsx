@@ -16,16 +16,17 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import { auth, db } from '../../services/firebaseConfig';
+import { Bell } from 'lucide-react-native';
 
 const AirtelMoneyScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'AirtelMoney'>>();
   const [username, setUsername] = useState('');
   const [airtelTransactions, setAirtelTransactions] = useState<any[]>([]);
-  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [airtelBalance, setairtelBalance] = useState<number | null>(null);
+  const [hasUnread, setHasUnread] = useState(false);
 
   useEffect(() => {
     const currentUser = auth.currentUser;
@@ -45,6 +46,20 @@ const AirtelMoneyScreen = () => {
     });
 
     return () => unsubscribeAirtel();
+  }, []);
+
+  useEffect(() => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+
+    const notificationsRef = collection(db, 'users', currentUser.uid, 'notifications');
+    const q = query(notificationsRef, where('read', '==', false));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setHasUnread(!snapshot.empty);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const handleNavigateToAirtelMoneyAllTransactions = () => {
@@ -78,117 +93,119 @@ const AirtelMoneyScreen = () => {
     <LinearGradient colors={['#A8E6CF', '#00BCD4']} style={styles.container}>
       <SafeAreaView style={{ flex: 1 }}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-          <View style={styles.contentWrapper}>
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-              <Text style={styles.welcome}>Bonjour {username}, bienvenue sur votre compte Airtel Money</Text>
-              <Text style={styles.balanceLabel}>Solde actuel</Text>
-              <Text
-                style={[
-                  styles.balanceValue,
-                  airtelBalance !== null && airtelBalance > 0 && { color: '#2E7D32' },
-                  airtelBalance !== null && airtelBalance <= 0 && { color: '#000' },
-                ]}
-              >
-                {airtelBalance !== null ? `${airtelBalance.toLocaleString()} FCFA` : 'Chargement...'}
-              </Text>
-
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Transactions récentes</Text>
-
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder="Rechercher par type, montant, date..."
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                />
-
-                {filteredTransactions.map((item) => {
-                  const isReceived = item.type === 'Virement reçu';
-                  const amountText = `${isReceived ? '+' : ''}${item.amount} FCFA`;
-
-                  return (
-                    <View key={item.reference} style={styles.transactionItem}>
-                      <Text style={styles.transactionType}>{item.type}</Text>
-                      <Text
-                        style={[
-                          styles.transactionAmount,
-                          { color: isReceived ? '#2E7D32' : '#000' },
-                        ]}
-                      >
-                        {amountText}
-                      </Text>
-                      <Text style={styles.transactionDate}>
-                        {new Date(item.date).toLocaleString('fr-FR', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          second: '2-digit',
-                        })}
-                      </Text>
-                    </View>
-                  );
-                })}
-
-                <TouchableOpacity onPress={handleNavigateToAirtelMoneyAllTransactions} style={styles.toggleButton}>
-                  <Text style={styles.toggleText}>Consulter tout l'historique</Text>
-                </TouchableOpacity>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => navigation.navigate('NotificationsScreen')}>
+              <View style={{ position: 'relative', padding: 10 }}>
+                <Bell size={24} color="#333" />
+                {hasUnread && <View style={styles.badge} />}
               </View>
-
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Coffres</Text>
-                <TouchableOpacity style={styles.actionButton} onPress={handleNavigateToVaults}>
-                  <Ionicons name="wallet" size={20} color="#fff" />
-                  <Text style={styles.buttonText}>Mes coffres</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Mes opérations</Text>
-                <View style={styles.row}>
-                  <TouchableOpacity onPress={handleNavigateToSendMoney} style={styles.actionButton}>
-                    <MaterialIcons name="send" size={20} color="#fff" />
-                    <Text style={styles.buttonText}>Envoyer</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity style={styles.operationButton}>
-                    <MaterialIcons name="add-circle-outline" size={20} color="#fff" />
-                    <Text style={styles.buttonText}>Recharger</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity style={styles.operationButton}>
-                    <FontAwesome5 name="money-bill-wave" size={20} color="#fff" />
-                    <Text style={styles.buttonText}>Retirer</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Gestion</Text>
-                <TouchableOpacity style={styles.actionButton}>
-                  <Ionicons name="analytics" size={20} color="#fff" />
-                  <Text style={styles.buttonText}>Activité mensuelle</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton}>
-                  <Ionicons name="document-text-outline" size={20} color="#fff" />
-                  <Text style={styles.buttonText}>Voir mes relevés</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton}>
-                  <Ionicons name="people" size={20} color="#fff" />
-                  <Text style={styles.buttonText}>Contacts Airtel</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Bénéficiaires</Text>
-                <TouchableOpacity onPress={handleNavigateToBeneficiaries} style={styles.actionButton}>
-                  <Ionicons name="folder" size={20} color="#fff" />
-                  <Text style={styles.buttonText}>Mes bénéficiaires</Text>
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
+            </TouchableOpacity>
           </View>
+
+          <View style={styles.headerInfo}>
+            <Text style={styles.welcome}>Bonjour {username}, bienvenue sur votre compte Airtel Money</Text>
+            <Text style={styles.balanceLabel}>Solde actuel</Text>
+            <Text
+              style={[
+                styles.balanceValue,
+                airtelBalance !== null && airtelBalance > 0 && { color: '#2E7D32' },
+                airtelBalance !== null && airtelBalance <= 0 && { color: '#000' },
+              ]}
+            >
+              {airtelBalance !== null ? `${airtelBalance.toLocaleString()} FCFA` : 'Chargement...'}
+            </Text>
+          </View>
+
+          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Transactions récentes</Text>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Rechercher par type, montant, date..."
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              {filteredTransactions.map((item) => {
+                const isReceived = item.type === 'Virement reçu';
+                const amountText = `${isReceived ? '+' : ''}${item.amount} FCFA`;
+
+                return (
+                  <View key={item.reference} style={styles.transactionItem}>
+                    <Text style={styles.transactionType}>{item.type}</Text>
+                    <Text style={[styles.transactionAmount, { color: isReceived ? '#2E7D32' : '#000' }]}>
+                      {amountText}
+                    </Text>
+                    <Text style={styles.transactionDate}>
+                      {new Date(item.date).toLocaleString('fr-FR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                      })}
+                    </Text>
+                  </View>
+                );
+              })}
+
+              <TouchableOpacity onPress={handleNavigateToAirtelMoneyAllTransactions} style={styles.toggleButton}>
+                <Text style={styles.toggleText}>Consulter tout l'historique</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Coffres</Text>
+              <TouchableOpacity style={styles.actionButton} onPress={handleNavigateToVaults}>
+                <Ionicons name="wallet" size={20} color="#fff" />
+                <Text style={styles.buttonText}>Mes coffres</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Mes opérations</Text>
+              <View style={styles.row}>
+                <TouchableOpacity onPress={handleNavigateToSendMoney} style={styles.actionButton}>
+                  <MaterialIcons name="send" size={20} color="#fff" />
+                  <Text style={styles.buttonText}>Envoyer</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.operationButton}>
+                  <MaterialIcons name="add-circle-outline" size={20} color="#fff" />
+                  <Text style={styles.buttonText}>Recharger</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.operationButton}>
+                  <FontAwesome5 name="money-bill-wave" size={20} color="#fff" />
+                  <Text style={styles.buttonText}>Retirer</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Gestion</Text>
+              <TouchableOpacity style={styles.actionButton}>
+                <Ionicons name="analytics" size={20} color="#fff" />
+                <Text style={styles.buttonText}>Activité mensuelle</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionButton}>
+                <Ionicons name="document-text-outline" size={20} color="#fff" />
+                <Text style={styles.buttonText}>Voir mes relevés</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionButton}>
+                <Ionicons name="people" size={20} color="#fff" />
+                <Text style={styles.buttonText}>Contacts Airtel</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Bénéficiaires</Text>
+              <TouchableOpacity onPress={handleNavigateToBeneficiaries} style={styles.actionButton}>
+                <Ionicons name="folder" size={20} color="#fff" />
+                <Text style={styles.buttonText}>Mes bénéficiaires</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </LinearGradient>
@@ -198,6 +215,13 @@ const AirtelMoneyScreen = () => {
 export default AirtelMoneyScreen;
 
 const styles = StyleSheet.create({
+  header: {
+  flexDirection: 'row',
+  justifyContent: 'flex-end',
+  paddingHorizontal: 20,
+  paddingTop: 10,
+},
+
   container: { flex: 1 },
   contentWrapper: { flex: 1, flexDirection: 'column' },
   scrollContent: { padding: 20 },
@@ -285,5 +309,18 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 10,
     marginBottom: 10,
+  },
+  badge: {
+  width: 8,
+  height: 8,
+  borderRadius: 4,
+  backgroundColor: 'red',
+  position: 'absolute',
+  top: 2,
+  right: 2,
+  },
+  headerInfo: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
   },
 });
