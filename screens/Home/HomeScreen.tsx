@@ -26,23 +26,29 @@ const HomeScreen = () => {
   };
 
   return (
-    <LinearGradient colors={['#A8E6CF', '#00BCD4']} style={styles.container}>
-      <SafeAreaView style={styles.content}>
-        <View style={styles.profileIconContainer}>
-          <TouchableOpacity style={styles.profileButton} onPress={goToProfile}>
-            <Ionicons name="person" size={24} color="#00796B" />
-          </TouchableOpacity>
-        </View>
-
-        <Text style={styles.title}>Bienvenue sur MyMoneyGest</Text>
-        <Text style={styles.subtitle}>Votre tableau de bord financier</Text>
-
-        <TouchableOpacity style={styles.button} onPress={goToAccounts}>
-          <Text style={styles.buttonText}>Accéder à mes comptes</Text>
+  <LinearGradient colors={['#A8E6CF', '#00BCD4']} style={styles.container}>
+    <SafeAreaView style={styles.content}>
+      <View style={styles.profileIconContainer}>
+        <TouchableOpacity style={styles.profileButton} onPress={goToProfile}>
+          <Ionicons name="person" size={24} color="#00796B" />
         </TouchableOpacity>
-      </SafeAreaView>
-    </LinearGradient>
-  );
+      </View>
+
+      <Text style={styles.title}>Bienvenue sur MyMoneyGest</Text>
+      <Text style={styles.subtitle}>Votre tableau de bord financier</Text>
+
+      <TouchableOpacity style={styles.button} onPress={goToAccounts}>
+        <Text style={styles.buttonText}>Accéder à mes comptes</Text>
+      </TouchableOpacity>
+    </SafeAreaView>
+
+    {/* Barre noire tout en bas */}
+    <View style={styles.bottomBackground} />
+
+    {/* (optionnel) Barre de navigation juste au-dessus du noir */}
+    {/* <View style={styles.bottomTabs}>...</View> */}
+  </LinearGradient>
+);
 };
 
 export default HomeScreen;
@@ -97,5 +103,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 3,
+  },
+  bottomBackground: {
+  height: 40, // ou 40 si tu veux plus de marge
+  backgroundColor: '#000', // ou une autre couleur foncée
+  width: '100%',
+  },
+
+  bottomTabs: {
+    position: 'absolute',
+    bottom: 40, // correspond à la hauteur du fond noir
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: '#00796B',
+    paddingVertical: 10,
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 15,
   },
 });

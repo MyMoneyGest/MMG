@@ -246,6 +246,8 @@ const ProfileScreen = () => {
         </TouchableOpacity>
         </ScrollView>
       </View>
+      {/* ✅ Fond noir en bas */}
+    <View style={styles.bottomBackground} />
     </LinearGradient>
   );
 };
@@ -261,7 +263,7 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 20 },
   button: {
     backgroundColor: '#00796B',
-    marginTop: 20,
+    marginTop: 10,
     padding: 14,
     borderRadius: 8,
     alignItems: 'center',
@@ -290,4 +292,25 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
   },
+  bottomTabs: {
+    position: 'absolute',
+    bottom: 80, // correspond à la hauteur du fond noir
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: '#00796B',
+    paddingVertical: 10,
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 15,
+  },
+  bottomBackground: {
+  position: 'absolute',
+  bottom: 0,
+  left: 0,
+  right: 0,
+  height: 30, // tu peux ajuster cette valeur selon le visuel souhaité
+  backgroundColor: '#000',
+  zIndex: -1,
+},
 });
