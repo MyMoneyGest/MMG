@@ -7,50 +7,57 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useNavigation } from '@react-navigation/native';
-import { RootStackParamList } from '../../navigation/AppNavigator';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../navigation/AppNavigator';
 
 type HomeScreenProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
 const HomeScreen = () => {
   const navigation = useNavigation<HomeScreenProp>();
 
-  const goToAccounts = () => {
-    navigation.navigate('Accounts');
-  };
-
-  const goToProfile = () => {
-    navigation.navigate('Profile');
-  };
-
-  const goToEntreprise = () => {
-    navigation.navigate('GestionEntrepriseScreen');
-  };
-
   return (
-    <LinearGradient colors={['#A8E6CF', '#00BCD4']} style={styles.container}>
-      <SafeAreaView style={styles.content}>
+    <LinearGradient colors={['#00bcd4', '#00838f']} style={styles.container}>
+      <SafeAreaView style={styles.safeArea}>
         <View style={styles.profileIconContainer}>
-          <TouchableOpacity style={styles.profileButton} onPress={goToProfile}>
-            <Ionicons name="person" size={24} color="#00796B" />
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Profile')}
+            style={styles.profileButton}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="person-outline" size={26} color="#00796B" />
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.title}>Bienvenue sur MyMoneyGest</Text>
-        <Text style={styles.subtitle}>Votre tableau de bord financier</Text>
+        <View style={styles.content}>
+          <Text style={styles.title}>Bienvenue 👋</Text>
+          <Text style={styles.subtitle}>sur MyMoneyGest</Text>
+          <Text style={styles.description}>
+            Votre tableau de bord financier personnel et professionnel
+          </Text>
 
-        <TouchableOpacity style={styles.button} onPress={goToAccounts}>
-          <Text style={styles.buttonText}>Accéder à mes comptes</Text>
-        </TouchableOpacity>
+          <View style={styles.buttonsContainer}>
+            <TouchableOpacity
+              style={[styles.button, styles.individualBtn]}
+              onPress={() => navigation.navigate('Accounts')}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="person" size={20} color="#fff" style={styles.buttonIcon} />
+              <Text style={styles.buttonText}>Je suis un particulier</Text>
+            </TouchableOpacity>
 
-        <TouchableOpacity style={styles.button} onPress={goToEntreprise}>
-          <Text style={styles.buttonText}>Gestion Entreprise</Text>
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.button, styles.enterpriseBtn]}
+              onPress={() => navigation.navigate('GestionEntrepriseScreen')}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="business" size={20} color="#fff" style={styles.buttonIcon} />
+              <Text style={styles.buttonText}>Je gère une entreprise</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </SafeAreaView>
-
-      <View style={styles.bottomBackground} />
     </LinearGradient>
   );
 };
@@ -61,57 +68,78 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: {
+  safeArea: {
     flex: 1,
-    paddingHorizontal: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#ffffff',
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontSize: 18,
-    color: '#e0f2f1',
-    textAlign: 'center',
-    marginBottom: 30,
-  },
-  button: {
-    backgroundColor: '#00796B',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    marginBottom: 15,
-    width: '100%',
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
   },
   profileIconContainer: {
     position: 'absolute',
-    top: 40,
+    top: 20,
     left: 20,
     zIndex: 10,
   },
   profileButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
     backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
   },
-  bottomBackground: {
-    height: 40,
-    backgroundColor: '#000',
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 25,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 26,
+    fontWeight: '600',
+    color: '#e0f2f1',
+    marginTop: 5,
+    marginBottom: 20,
+  },
+  description: {
+    fontSize: 16,
+    color: '#ffffffcc',
+    textAlign: 'center',
+    marginBottom: 40,
+    lineHeight: 22,
+  },
+  buttonsContainer: {
     width: '100%',
   },
-
+  button: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    marginBottom: 20,
+    justifyContent: 'center',
+  },
+  individualBtn: {
+    backgroundColor: '#00796B',
+  },
+  enterpriseBtn: {
+    backgroundColor: '#004D40',
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  buttonIcon: {
+    marginRight: 10,
+  },
+  
 });

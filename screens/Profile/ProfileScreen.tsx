@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, Alert, ActivityIndicator, Platform, Image,ScrollView,
+  StyleSheet, Alert, ActivityIndicator, Platform, Image, ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getDoc, doc, updateDoc, Timestamp } from 'firebase/firestore';
@@ -13,6 +13,7 @@ import { signOut } from 'firebase/auth';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadProfilePicture } from '../../services/firebaseStorage';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Ionicons } from '@expo/vector-icons';
 
 type ProfileScreenProp = NativeStackNavigationProp<RootStackParamList, 'Profile'>;
 
@@ -174,80 +175,117 @@ const ProfileScreen = () => {
 
   return (
     <LinearGradient colors={['#A8E6CF', '#00BCD4']} style={styles.container}>
-      <View style={styles.card}>
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          {imageUri ? (
+            <Image
+              source={{ uri: imageUri }}
+              style={styles.profileImage}
+            />
+          ) : (
+            <View style={[styles.profileImage, styles.placeholder]}>
+              <Ionicons name="person" size={64} color="#00796B" />
+            </View>
+          )}
+          <TouchableOpacity style={styles.editPhotoBtn} onPress={pickImage} disabled={uploading}>
+            <Text style={styles.editPhotoText}>{uploading ? 'Téléversement...' : 'Changer la photo'}</Text>
+          </TouchableOpacity>
+          <Text style={styles.welcomeText}>Bienvenue, {name ? name.split(' ')[0] : 'Utilisateur'} 👋</Text>
+        </View>
 
-        <Text style={styles.label}>Email</Text>
-        <TextInput style={[styles.input, styles.disabled]} value={email} editable={false} />
+        <View style={styles.form}>
+          <View style={styles.inputGroup}>
+            <Ionicons name="mail-outline" size={20} color="#00796B" style={styles.icon} />
+            <TextInput style={[styles.input, styles.disabled]} value={email} editable={false} />
+          </View>
 
-        <Text style={styles.label}>Nom complet</Text>
-        <TextInput style={[styles.input, disabled && styles.disabled]} value={name} onChangeText={setName} editable={!disabled} />
+          <View style={styles.inputGroup}>
+            <Ionicons name="person-outline" size={20} color="#00796B" style={styles.icon} />
+            <TextInput
+              style={[styles.input, disabled && styles.disabled]}
+              value={name}
+              onChangeText={setName}
+              editable={!disabled}
+              placeholder="Nom complet"
+              placeholderTextColor="#666"
+            />
+          </View>
 
-        <Text style={styles.label}>Téléphone (+241...)</Text>
-        <TextInput style={[styles.input, disabled && styles.disabled]} value={phone} onChangeText={setPhone} keyboardType="phone-pad" editable={!disabled} />
+          <View style={styles.inputGroup}>
+            <Ionicons name="call-outline" size={20} color="#00796B" style={styles.icon} />
+            <TextInput
+              style={[styles.input, disabled && styles.disabled]}
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+              editable={!disabled}
+              placeholder="+241 ..."
+              placeholderTextColor="#666"
+            />
+          </View>
 
-        <Text style={styles.label}>Adresse</Text>
-        <TextInput style={[styles.input, disabled && styles.disabled]} value={address} onChangeText={setAddress} editable={!disabled} />
+          <View style={styles.inputGroup}>
+            <Ionicons name="location-outline" size={20} color="#00796B" style={styles.icon} />
+            <TextInput
+              style={[styles.input, disabled && styles.disabled]}
+              value={address}
+              onChangeText={setAddress}
+              editable={!disabled}
+              placeholder="Adresse"
+              placeholderTextColor="#666"
+            />
+          </View>
 
-        <Text style={styles.label}>Date de naissance</Text>
-        <TouchableOpacity
-          onPress={() => !disabled && setShowPicker(true)}
-          style={[styles.input, disabled && styles.disabled]}
-          disabled={disabled}
-        >
-          <Text>{birthDate ? birthDate.toLocaleDateString('fr-FR') : 'Sélectionnez une date'}</Text>
-        </TouchableOpacity>
+          <View style={styles.inputGroup}>
+            <Ionicons name="calendar-outline" size={20} color="#00796B" style={styles.icon} />
+            <TouchableOpacity
+              onPress={() => !disabled && setShowPicker(true)}
+              style={[styles.input, disabled && styles.disabled]}
+              disabled={disabled}
+            >
+              <Text style={{ color: birthDate ? '#000' : '#666' }}>
+                {birthDate ? birthDate.toLocaleDateString('fr-FR') : 'Sélectionnez une date'}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-        {showPicker && (
-          <DateTimePicker
-            value={birthDate || new Date()}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={(event, selectedDate) => {
-              setShowPicker(Platform.OS === 'ios');
-              if (selectedDate) {
-                setBirthDate(selectedDate);
-                setBirthday(selectedDate.toISOString());
-              }
-            }}
-            maximumDate={new Date()}
-          />
-        )}
+          {showPicker && (
+            <DateTimePicker
+              value={birthDate || new Date()}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={(event, selectedDate) => {
+                setShowPicker(Platform.OS === 'ios');
+                if (selectedDate) {
+                  setBirthDate(selectedDate);
+                  setBirthday(selectedDate.toISOString());
+                }
+              }}
+              maximumDate={new Date()}
+            />
+          )}
 
-        <TouchableOpacity style={[styles.button, disabled && { backgroundColor: '#aaa' }]} onPress={handleUpdate} disabled={disabled}>
-          <Text style={styles.buttonText}>Mettre à jour</Text>
-        </TouchableOpacity>
+          <TouchableOpacity style={[styles.button, disabled && styles.buttonDisabled]} onPress={handleUpdate} disabled={disabled}>
+            <Text style={styles.buttonText}>Mettre à jour</Text>
+          </TouchableOpacity>
 
-        {disabled && (
-          <Text style={styles.warningText}>
-            Vous pourrez modifier vos informations dans {getRemainingTime()}.
-          </Text>
-        )}
+          {disabled && (
+            <Text style={styles.warningText}>
+              Vous pourrez modifier vos informations dans {getRemainingTime()}.
+            </Text>
+          )}
 
-        <TouchableOpacity style={styles.linkButton} onPress={goToChangePassword}>
-          <Text style={styles.linkText}>Changer le mot de passe</Text>
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.linkButton} onPress={goToChangePassword}>
+            <Text style={styles.linkText}>Changer le mot de passe</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutText}>Se déconnecter</Text>
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Text style={styles.logoutText}>Se déconnecter</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
 
-        {imageUri && (
-          <Image
-            source={{ uri: imageUri }}
-            style={{ width: 120, height: 120, borderRadius: 60, alignSelf: 'center', marginBottom: 15 }}
-          />
-        )}
-
-        <TouchableOpacity style={styles.button} onPress={pickImage} disabled={uploading}>
-          <Text style={styles.buttonText}>
-            {uploading ? 'Téléversement...' : 'Changer la photo de profil'}
-          </Text>
-        </TouchableOpacity>
-        </ScrollView>
-      </View>
-      {/* ✅ Fond noir en bas */}
-    <View style={styles.bottomBackground} />
+      <View style={styles.bottomBackground} />
     </LinearGradient>
   );
 };
@@ -255,62 +293,130 @@ const ProfileScreen = () => {
 export default ProfileScreen;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 2 },
-  card: { backgroundColor: '#ffffffcc', padding: 5, borderRadius: 10 },
-  label: { fontWeight: 'bold', marginTop: 10, marginBottom: 4 },
-  input: { backgroundColor: '#f5f5f5', borderRadius: 8, padding: 10 },
-  disabled: { backgroundColor: '#e0e0e0' },
-  scrollContent: { padding: 20 },
-  button: {
-    backgroundColor: '#00796B',
-    marginTop: 10,
-    padding: 14,
-    borderRadius: 8,
+  container: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingVertical: 30,
+    paddingHorizontal: 20,
+    paddingBottom: 60,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 25,
+  },
+  profileImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 3,
+    borderColor: '#00796B',
+    backgroundColor: '#dcedc8',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  placeholder: {
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  buttonText: { color: '#fff', fontWeight: 'bold' },
-  linkButton: { marginTop: 15, alignItems: 'center' },
-  linkText: { color: '#00796B', textDecorationLine: 'underline' },
-  warningText: {
-    marginTop: 15,
-    color: '#ffeb3b',
-    backgroundColor: '#263238',
-    padding: 10,
-    borderRadius: 6,
-    textAlign: 'center',
-    fontSize: 14,
+  editPhotoBtn: {
+    marginTop: 10,
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    backgroundColor: '#00796B',
+    borderRadius: 20,
+    alignSelf: 'center',
+  },
+  editPhotoText: {
+    color: '#fff',
     fontWeight: '600',
   },
+  welcomeText: {
+    marginTop: 15,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#004D40',
+  },
+  form: {
+    backgroundColor: '#ffffffdd',
+    borderRadius: 15,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  inputGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 18,
+    borderBottomWidth: 1,
+    borderColor: '#00796B',
+    paddingBottom: 6,
+  },
+  icon: {
+    marginRight: 10,
+  },
+  input: {
+    flex: 1,
+    fontSize: 16,
+    color: '#004D40',
+  },
+  disabled: {
+    backgroundColor: '#eee',
+    color: '#999',
+  },
+  button: {
+    backgroundColor: '#00796B',
+    paddingVertical: 14,
+    borderRadius: 25,
+    marginTop: 15,
+    alignItems: 'center',
+  },
+  buttonDisabled: {
+    backgroundColor: '#a0a0a0',
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  warningText: {
+    marginTop: 12,
+    color: '#d32f2f',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  linkButton: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  linkText: {
+    color: '#00796B',
+    fontSize: 16,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
   logoutButton: {
-    backgroundColor: '#B71C1C',
-    marginTop: 25,
-    padding: 14,
-    borderRadius: 8,
+    marginTop: 35,
     alignItems: 'center',
   },
   logoutText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  bottomTabs: {
-    position: 'absolute',
-    bottom: 80, // correspond à la hauteur du fond noir
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: '#00796B',
-    paddingVertical: 10,
-    borderTopLeftRadius: 15,
-    borderTopRightRadius: 15,
+    color: '#d32f2f',
+    fontSize: 17,
+    fontWeight: '700',
   },
   bottomBackground: {
-  position: 'absolute',
-  bottom: 0,
-  left: 0,
-  right: 0,
-  height: 30, // tu peux ajuster cette valeur selon le visuel souhaité
-  backgroundColor: '#000',
-  zIndex: -1,
-},
+    position: 'absolute',
+    bottom: 0,
+    height: 50,
+    width: '100%',
+    backgroundColor: '#004D40',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+  },
 });

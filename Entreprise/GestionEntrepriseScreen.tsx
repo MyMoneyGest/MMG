@@ -1,3 +1,4 @@
+//GestionEntreprise
 import React from 'react';
 import {
   View,
@@ -6,17 +7,24 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import { useEffect, useState } from 'react';
+import { getDoc, doc } from 'firebase/firestore';
+import { auth, db } from '../services/firebaseConfig';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'GestionEntrepriseScreen'>;
 
 const EntrepriseScreen = () => {
   const navigation = useNavigation<NavigationProp>();
+
+  const [enterpriseName, setEnterpriseName] = useState('');
 
   const handleNavigateToEntrepriseRevenus = () => {
     navigation.navigate('EntrepriseRevenusScreen');
@@ -34,10 +42,49 @@ const EntrepriseScreen = () => {
     navigation.navigate('EntrepriseRapportsScreen');
   };
 
+  const handleNavigateToUserTypeSelection = () => {
+    navigation.navigate('UserTypeSelectionScreen');
+  };
+
+  const [loading, setLoading] = useState(true);
+
+useEffect(() => {
+  const fetchDataAndCheckAccess = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const userDoc = await getDoc(doc(db, 'users', user.uid));
+    const userData = userDoc.data();
+
+    if (!userData?.enterpriseId) {
+      Alert.alert('Accès refusé', 'Vous devez rejoindre une entreprise pour accéder à cet espace.');
+      navigation.navigate('UserTypeSelectionScreen');
+      return;
+    }
+
+    const enterpriseDoc = await getDoc(doc(db, 'enterprises', userData.enterpriseId));
+    setEnterpriseName(enterpriseDoc.data()?.name || 'Entreprise');
+
+    setLoading(false);
+  };
+
+  fetchDataAndCheckAccess();
+}, []);
+
+if (loading) {
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <ActivityIndicator size="large" color="#00796B" />
+    </View>
+  );
+}
+
+
   return (
     <LinearGradient colors={['#A8E6CF', '#00BCD4']} style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.scrollContainer}>
+          <Text style={styles.enterpriseName}>{enterpriseName}</Text>
           <Text style={styles.title}>Espace Entreprise</Text>
           <Text style={styles.subtitle}>Gérez vos finances professionnelles</Text>
 
@@ -97,17 +144,28 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   card: {
-    backgroundColor: '#ffffffee',
-    borderRadius: 10,
-    padding: 16,
-    marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  cardText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#00796B',
-  },
+  backgroundColor: '#ffffffee',
+  borderRadius: 12,
+  padding: 20,
+  marginBottom: 16,
+  flexDirection: 'row',
+  alignItems: 'center',
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 4,
+  elevation: 3,
+},
+cardText: {
+  fontSize: 17,
+  fontWeight: '600',
+  color: '#004D40',
+},
+enterpriseName: {
+  fontSize: 20,
+  fontWeight: '600',
+  color: '#b2dfdb',
+  textAlign: 'center',
+  marginBottom: 4,
+},
 });

@@ -30,6 +30,8 @@ import BudgetMensuelScreen from '../screens/Airtel/BudgetMensuelScreen';
 import DepenseProfessionnellesScreen from '../Entreprise/DepenseProfessionnellesScreen';
 import FacturesScreen from '../Entreprise/FacturesScreen';
 import EntrepriseRapportsScreen from '../Entreprise/EntrepriseRapportsScreen';
+import UserTypeSelectionScreen from '../screens/Authentification/UserTypeSelectionScreen';
+import EnterEnterpriseCodeScreen from '../screens/Authentification/EnterEnterpriseCodeScreen';
 
 export type RootStackParamList = {
   // ...autres écrans
@@ -96,6 +98,8 @@ export type RootStackParamList = {
   DepenseProfessionnellesScreen : undefined;
   FacturesScreen : undefined;
   EntrepriseRapportsScreen : undefined;
+  UserTypeSelectionScreen : undefined;
+  EnterEnterpriseCodeScreen : undefined;
 };
 
 export type Transaction = {
@@ -150,6 +154,8 @@ const AppNavigator = ({ initialRoute }: AppNavigatorProps) => {
       <Stack.Screen name="DepenseProfessionnellesScreen" component={DepenseProfessionnellesScreen} />
       <Stack.Screen name="FacturesScreen" component={FacturesScreen} />
       <Stack.Screen name="EntrepriseRapportsScreen" component={EntrepriseRapportsScreen} />
+      <Stack.Screen name="UserTypeSelectionScreen" component={UserTypeSelectionScreen} />
+      <Stack.Screen name="EnterEnterpriseCodeScreen" component={EnterEnterpriseCodeScreen} />
     </Stack.Navigator>
   );
 };
