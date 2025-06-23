@@ -79,6 +79,14 @@ const AirtelMoneyScreen = () => {
     navigation.navigate('AirtelSendMoneyScreen');
   };
 
+  const handleNavigateToRequestPayment = () => {
+    navigation.navigate('RequestPaymentScreen');
+  };
+
+  const handleNavigateToBudgetMensuel = () => {
+    navigation.navigate('BudgetMensuelScreen');
+  };
+
   const filteredTransactions = airtelTransactions
     .filter((item) => {
       const query = searchQuery.toLowerCase();
@@ -202,6 +210,10 @@ const AirtelMoneyScreen = () => {
               <Ionicons name="wallet" size={20} color="#fff" />
               <Text style={styles.buttonText}>Mes coffres</Text>
             </TouchableOpacity>
+            <TouchableOpacity style={styles.actionButton} onPress={handleNavigateToVaults}>
+              <Ionicons name="wallet" size={20} color="#fff" />
+              <Text style={styles.buttonText}>Mes coffres partagés</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -214,7 +226,7 @@ const AirtelMoneyScreen = () => {
               <MaterialIcons name="send" size={20} color="#fff" />
               <Text style={styles.buttonText}>Envoyer</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity style={styles.actionButton} onPress={handleNavigateToRequestPayment}>
               <FontAwesome name="money" size={20} color="#fff" />
               <Text style={styles.buttonText}>Demander</Text>
             </TouchableOpacity>
@@ -241,6 +253,10 @@ const AirtelMoneyScreen = () => {
             <TouchableOpacity style={styles.actionButton}>
               <Ionicons name="document-text-outline" size={20} color="#fff" />
               <Text style={styles.buttonText}>Voir mes relevés</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('BudgetMensuelScreen')}>
+              <Ionicons name="pie-chart" size={20} color="#fff" />
+              <Text style={styles.buttonText}>Mon budget</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionButton}>
               <Ionicons name="people" size={20} color="#fff" />

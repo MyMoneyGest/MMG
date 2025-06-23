@@ -23,6 +23,8 @@ import TransactionDetailScreen from '../screens/Airtel/TransactionDetailScreen';
 import AirtelBeneficiairesScreen from '../screens/Airtel/AirtelBeneficiairesScreen';
 import EditBeneficiaryScreen from '../screens/Airtel/EditBeneficiaryScreen';
 import NotificationsScreen from '../screens/Airtel/NotificationsScreen';
+import RequestPaymentScreen from '../screens/Airtel/RequestPaymentScreen';
+import BudgetMensuelScreen from '../screens/Airtel/BudgetMensuelScreen';
 
 export type RootStackParamList = {
   // ...autres écrans
@@ -82,6 +84,8 @@ export type RootStackParamList = {
   };
 
   EnterSendAmountScreen : undefined;
+  RequestPaymentScreen : undefined;
+ BudgetMensuelScreen: undefined;
 };
 
 export type Transaction = {
@@ -129,6 +133,8 @@ const AppNavigator = ({ initialRoute }: AppNavigatorProps) => {
       <Stack.Screen name="EnterSendAmountScreen" component={EnterSendAmountScreen} />
       <Stack.Screen name="EditBeneficiaryScreen" component={EditBeneficiaryScreen} />
       <Stack.Screen name="NotificationsScreen" component={NotificationsScreen} />
+      <Stack.Screen name="RequestPaymentScreen" component={RequestPaymentScreen} />
+      <Stack.Screen name="BudgetMensuelScreen" component={BudgetMensuelScreen} />
     </Stack.Navigator>
   );
 };
