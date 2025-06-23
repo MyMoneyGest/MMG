@@ -24,7 +24,12 @@ import AirtelBeneficiairesScreen from '../screens/Airtel/AirtelBeneficiairesScre
 import EditBeneficiaryScreen from '../screens/Airtel/EditBeneficiaryScreen';
 import NotificationsScreen from '../screens/Airtel/NotificationsScreen';
 import RequestPaymentScreen from '../screens/Airtel/RequestPaymentScreen';
+import GestionEntrepriseScreen from '../Entreprise/GestionEntrepriseScreen';
+import EntrepriseRevenusScreen from '../Entreprise/EntrepriseRevenusScreen';
 import BudgetMensuelScreen from '../screens/Airtel/BudgetMensuelScreen';
+import DepenseProfessionnellesScreen from '../Entreprise/DepenseProfessionnellesScreen';
+import FacturesScreen from '../Entreprise/FacturesScreen';
+import EntrepriseRapportsScreen from '../Entreprise/EntrepriseRapportsScreen';
 
 export type RootStackParamList = {
   // ...autres écrans
@@ -85,7 +90,12 @@ export type RootStackParamList = {
 
   EnterSendAmountScreen : undefined;
   RequestPaymentScreen : undefined;
- BudgetMensuelScreen: undefined;
+  BudgetMensuelScreen: undefined;
+  GestionEntrepriseScreen : undefined;
+  EntrepriseRevenusScreen : undefined;
+  DepenseProfessionnellesScreen : undefined;
+  FacturesScreen : undefined;
+  EntrepriseRapportsScreen : undefined;
 };
 
 export type Transaction = {
@@ -135,6 +145,11 @@ const AppNavigator = ({ initialRoute }: AppNavigatorProps) => {
       <Stack.Screen name="NotificationsScreen" component={NotificationsScreen} />
       <Stack.Screen name="RequestPaymentScreen" component={RequestPaymentScreen} />
       <Stack.Screen name="BudgetMensuelScreen" component={BudgetMensuelScreen} />
+      <Stack.Screen name="GestionEntrepriseScreen" component={GestionEntrepriseScreen} />
+      <Stack.Screen name="EntrepriseRevenusScreen" component={EntrepriseRevenusScreen} />
+      <Stack.Screen name="DepenseProfessionnellesScreen" component={DepenseProfessionnellesScreen} />
+      <Stack.Screen name="FacturesScreen" component={FacturesScreen} />
+      <Stack.Screen name="EntrepriseRapportsScreen" component={EntrepriseRapportsScreen} />
     </Stack.Navigator>
   );
 };
