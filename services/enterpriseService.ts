@@ -1,5 +1,3 @@
-// services/enterpriseService.ts
-
 import { db } from './firebaseConfig';
 import {
   collection,
@@ -28,8 +26,9 @@ interface User {
   uid: string;
   email: string;
   type: 'enterprise' | 'collaborator';
-  createdAt: any; // serveurTimestamp()
+  createdAt: any;
   displayName: string;
+  enterpriseId: string;
 }
 
 interface Enterprise {
@@ -43,14 +42,15 @@ interface Enterprise {
   telephone: string;
   dirigeant: ManagerData;
   createdAt: any;
+  createdBy: string;
 }
 
 /**
  * Crée simultanément un utilisateur dirigeant et son entreprise dans Firestore.
  *
- * @param user - Objet user avec uid, email, displayName optionnel
+ * @param user - Objet utilisateur (Firebase Auth)
  * @param enterpriseData - Données de l'entreprise
- * @param managerData - Données du dirigeant (manager)
+ * @param managerData - Données du dirigeant
  */
 export async function createEnterpriseUser(
   user: { uid: string; email: string; displayName?: string },
@@ -58,32 +58,38 @@ export async function createEnterpriseUser(
   managerData: ManagerData
 ) {
   try {
-    // Document user minimal (dirigeant)
+    // 🔹 Crée un nouvel ID pour l'entreprise
+    const newEnterpriseRef = doc(collection(db, 'enterprises'));
+    const enterpriseId = newEnterpriseRef.id;
+
+    // 🔹 Document entreprise
+    const entrepriseDoc: Enterprise = {
+      uid: enterpriseId,
+      ...enterpriseData,
+      dirigeant: managerData,
+      createdAt: serverTimestamp(),
+      createdBy: user.uid,
+    };
+
+    // 🔹 Document utilisateur
     const userDoc: User = {
       uid: user.uid,
       email: user.email,
       type: 'enterprise',
       createdAt: serverTimestamp(),
       displayName: user.displayName || managerData.nom,
+      enterpriseId, // 🔑 clé indispensable pour retrouver l'entreprise
     };
 
-    // Document entreprise complet
-    const entrepriseDoc: Enterprise = {
-      uid: user.uid,
-      ...enterpriseData,
-      dirigeant: managerData,
-      createdAt: serverTimestamp(),
-    };
-
-    // Enregistre les 2 documents en parallèle
+    // 🔹 Enregistrement simultané
     await Promise.all([
       setDoc(doc(db, 'users', user.uid), userDoc),
-      setDoc(doc(db, 'entreprises', user.uid), entrepriseDoc),
+      setDoc(newEnterpriseRef, entrepriseDoc),
     ]);
 
-    console.log('Utilisateur entreprise et entreprise créés avec succès');
+    console.log('✅ Utilisateur entreprise et entreprise créés avec succès');
   } catch (error) {
-    console.error('Erreur lors de la création utilisateur + entreprise:', error);
+    console.error('❌ Erreur lors de la création utilisateur + entreprise:', error);
     throw error;
   }
 }

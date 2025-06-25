@@ -8,13 +8,10 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/AppNavigator';
-import { LinearGradient } from 'expo-linear-gradient';
 
 import {
   createUserWithEmailAndPassword,
@@ -27,95 +24,81 @@ type RegisterScreenProp = NativeStackNavigationProp<RootStackParamList, 'Registe
 
 const RegisterScreen = () => {
   const navigation = useNavigation<RegisterScreenProp>();
-  const [accountType, setAccountType] = useState<'personal' | 'enterprise' | null>(null);
+  const [accountType, setAccountType] = useState<'personal' | null>(null);
 
+  const [loading, setLoading] = useState(false);
+  const [secure, setSecure] = useState(true);
+
+  // Personnel uniquement
+  const [name, setName] = useState('');
+
+  // Champs communs
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [secure, setSecure] = useState(true);
-  const [loading, setLoading] = useState(false);
 
-  const [name, setName] = useState('');
-  const [enterpriseName, setEnterpriseName] = useState('');
-  const [enterpriseSiret, setEnterpriseSiret] = useState('');
+  const validateEmail = (email: string) => {
+    const commonDomains = [
+      'gmail.com',
+      'hotmail.com',
+      'outlook.com',
+      'yahoo.com',
+      'icloud.com',
+      'protonmail.com',
+    ];
+    const genericTLD = /\.(com|fr|org|net|ga|io)$/i;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  const validateEmail = (email: string) => /^\S+@\S+\.\S+$/.test(email);
+    if (!emailRegex.test(email)) return false;
+    const domain = email.split('@')[1].toLowerCase();
+    return commonDomains.includes(domain) || genericTLD.test(domain);
+  };
 
   const handleRegister = async () => {
-    if (!email || !password || !confirmPassword) {
+    if (!name || !email || !password || !confirmPassword) {
       Alert.alert('Erreur', 'Tous les champs obligatoires doivent être remplis.');
       return;
     }
-
     if (!validateEmail(email)) {
       Alert.alert('Email invalide', 'Veuillez entrer un email valide.');
       return;
     }
-
     if (password.length < 6) {
       Alert.alert('Mot de passe trop court', 'Minimum 6 caractères.');
       return;
     }
-
     if (password !== confirmPassword) {
-      Alert.alert('Mot de passe', 'Les mots de passe ne correspondent pas.');
-      return;
-    }
-    if (accountType === 'personal') {
-      if (!name.trim()) {
-        Alert.alert('Erreur', 'Le nom complet est requis.');
-        return;
-      }
-    } else if (accountType === 'enterprise') {
-      if (!enterpriseName.trim()) {
-        Alert.alert('Erreur', "Le nom de l'entreprise est requis.");
-        return;
-      }
-      if (!enterpriseSiret.trim()) {
-        Alert.alert('Erreur', 'Le numéro SIRET est requis.');
-        return;
-      }
-    } else {
-      Alert.alert('Erreur', 'Veuillez sélectionner un type de compte.');
+      Alert.alert('Erreur', 'Les mots de passe ne correspondent pas.');
       return;
     }
 
     setLoading(true);
 
     try {
-
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      if (accountType === 'personal') {
-        await updateProfile(user, { displayName: name });
-      } else if (accountType === 'enterprise') {
-        await updateProfile(user, { displayName: enterpriseName });
-      }
+      await updateProfile(user, {
+        displayName: name,
+      });
 
       const userData = {
         uid: user.uid,
-
         email,
+        type: 'personal',
         createdAt: new Date(),
-        accountType,
-        ...(accountType === 'personal'
-          ? { name }
-          : { enterpriseName, enterpriseSiret }),
+        name,
       };
 
       await setDoc(doc(db, 'users', user.uid), userData);
 
-      Alert.alert('Compte créé', 'Votre compte a été créé avec succès.');
-
-      setTimeout(() => {
-        navigation.navigate('Login');
-      }, 1000);
+      Alert.alert('Succès', 'Compte créé avec succès.');
+      navigation.navigate('Login');
     } catch (error: any) {
       if (error.code === 'auth/email-already-in-use') {
         Alert.alert('Erreur', 'Cet email est déjà utilisé.');
       } else {
-        Alert.alert('Erreur Firebase', error.message);
+        Alert.alert('Erreur', error.message);
       }
     } finally {
       setLoading(false);
@@ -123,147 +106,78 @@ const RegisterScreen = () => {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <LinearGradient
-        colors={['#00bcd4', '#00838f']}
-        style={styles.container}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scrollContainer}
-          keyboardShouldPersistTaps="handled"
-        >
-          {!accountType ? (
-            <>
-              <Text style={styles.title}>Créer un compte</Text>
-              <Text style={styles.subtitle}>Choisissez le type de compte</Text>
-             <View style={styles.accountTypeContainer}>
-                <TouchableOpacity
-                  style={[styles.accountTypeButton, styles.personalBtn]}
-                  onPress={() => setAccountType('personal')}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.accountTypeText}>Compte Personnel</Text>
-                </TouchableOpacity>
+    <ScrollView contentContainerStyle={styles.container}>
+      {!accountType ? (
+        <>
+          <Text style={styles.title}>Créer un compte</Text>
+          <Text style={styles.subtitle}>Choisissez le type de compte</Text>
+          <View style={styles.accountTypeContainer}>
+            <TouchableOpacity
+              style={styles.accountTypeButton}
+              onPress={() => setAccountType('personal')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.accountTypeText}>Compte Personnel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.accountTypeButton, styles.enterpriseButton]}
+              onPress={() => navigation.navigate('RegisterCompteProScreen')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.accountTypeText}>Compte Entreprise</Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      ) : (
+        <>
+          <Text style={styles.title}>Compte Personnel</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Nom complet"
+            value={name}
+            onChangeText={setName}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Mot de passe"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={secure}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Confirmer mot de passe"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry={secure}
+          />
 
-                <TouchableOpacity
-                  style={[styles.accountTypeButton, styles.enterpriseBtn]}
-                  onPress={() => setAccountType('enterprise')}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.accountTypeText}>Compte Entreprise</Text>
-                </TouchableOpacity>
-              </View>
-            </>
+          <TouchableOpacity onPress={() => setSecure(!secure)} style={{ alignSelf: 'flex-end', marginBottom: 15 }}>
+            <Text style={styles.toggle}>{secure ? '👁️‍🗨️' : '🙈'}</Text>
+          </TouchableOpacity>
+
+          {loading ? (
+            <ActivityIndicator size="large" color="#00796B" />
           ) : (
-            <>
-              <Text style={styles.title}>
-                {accountType === 'personal' ? 'Compte Personnel' : 'Compte Entreprise'}
-              </Text>
-
-              {accountType === 'personal' ? (
-                <TextInput
-                  style={styles.input}
-                  placeholder="Nom complet"
-                  placeholderTextColor="#d0f0e8"
-                  value={name}
-                  onChangeText={setName}
-                />
-              ) : (
-                <>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Nom de l'entreprise"
-                    placeholderTextColor="#d0f0e8"
-                    value={enterpriseName}
-                    onChangeText={setEnterpriseName}
-                  />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Numéro SIRET"
-                    placeholderTextColor="#d0f0e8"
-                    value={enterpriseSiret}
-                    onChangeText={setEnterpriseSiret}
-                    keyboardType="number-pad"
-                  />
-                </>
-              )}
-
-            <TextInput
-              style={styles.input}
-              placeholder="Adresse email"
-              placeholderTextColor="#d0f0e8"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-
-            {/* Wrapper pour mot de passe + œil */}
-            <View style={{ width: '100%', position: 'relative' }}>
-              <TextInput
-                style={styles.input}
-                placeholder="Mot de passe"
-                placeholderTextColor="#d0f0e8"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={secure}
-              />
-              <TouchableOpacity onPress={() => setSecure(!secure)} style={styles.eyeToggle}>
-                <Text style={{ color: '#b2dfdb', fontSize: 18 }}>
-                  {secure ? '👁️‍🗨️' : '🙈'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Même chose pour confirmation du mot de passe */}
-            <View style={{ width: '100%', position: 'relative' }}>
-              <TextInput
-                style={styles.input}
-                placeholder="Confirmer le mot de passe"
-                placeholderTextColor="#d0f0e8"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry={secure}
-              />
-              <TouchableOpacity onPress={() => setSecure(!secure)} style={styles.eyeToggle}>
-                <Text style={{ color: '#b2dfdb', fontSize: 18 }}>
-                  {secure ? '👁️‍🗨️' : '🙈'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-              {loading ? (
-                <ActivityIndicator size="large" color="#e0f2f1" style={{ marginTop: 20 }} />
-              ) : (
-                <TouchableOpacity
-                  style={styles.button}
-                  onPress={handleRegister}
-                  activeOpacity={0.85}
-                >
-                  <LinearGradient
-                    colors={['#00796B', '#004D40']}
-                    style={styles.gradientButton}
-                  >
-                    <Text style={styles.buttonText}>Créer un compte</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              )}
-
-              <TouchableOpacity
-                onPress={() => setAccountType(null)}
-                style={styles.backButton}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.backButtonText}>← Retour au choix</Text>
-              </TouchableOpacity>
-            </>
+            <TouchableOpacity style={styles.button} onPress={handleRegister} activeOpacity={0.8}>
+              <Text style={styles.buttonText}>Créer un compte</Text>
+            </TouchableOpacity>
           )}
-        </ScrollView>
-      </LinearGradient>
-    </KeyboardAvoidingView>
+
+          <TouchableOpacity onPress={() => setAccountType(null)} style={styles.backButton} activeOpacity={0.7}>
+            <Text style={styles.backButtonText}>← Retour au choix</Text>
+          </TouchableOpacity>
+        </>
+      )}
+    </ScrollView>
   );
 };
 
@@ -271,104 +185,84 @@ export default RegisterScreen;
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-  },
-  scrollContainer: {
     flexGrow: 1,
+    padding: 20,
+    backgroundColor: '#fff',
     justifyContent: 'center',
-    paddingHorizontal: 25,
-    paddingVertical: 40,
   },
   title: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: 'bold',
-    color: '#ffffff',
+    color: '#00796B',
     textAlign: 'center',
-    marginBottom: 25,
+    marginBottom: 16,
   },
   subtitle: {
-    fontSize: 20,
-    color: '#e0f2f1',
+    fontSize: 18,
     textAlign: 'center',
-    marginBottom: 40,
-    fontWeight: '600',
+    marginBottom: 30,
+    color: '#004D40',
   },
   accountTypeContainer: {
-    flexDirection: 'column', // passe en colonne
-    alignItems: 'center', // centre horizontalement les boutons
-    gap: 12, // espace entre les boutons (fonctionne sur React Native 0.71+)
+    alignItems: 'center',
   },
   accountTypeButton: {
-    paddingVertical: 18,
-    paddingHorizontal: 28,
-    borderRadius: 40,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 6,
-  },
-  personalBtn: {
     backgroundColor: '#00796B',
+    paddingVertical: 18,
+    paddingHorizontal: 40,
+    borderRadius: 25,
+    minWidth: 220,
+    alignItems: 'center',
+    marginBottom: 15,
+    shadowColor: '#004D40',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
   },
-  enterpriseBtn: {
+  enterpriseButton: {
     backgroundColor: '#004D40',
   },
   accountTypeText: {
     color: '#fff',
-    fontSize: 18,
     fontWeight: '700',
-    letterSpacing: 0.7,
+    fontSize: 18,
   },
   input: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 25,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    fontSize: 16,
-    color: '#e0f2f1',
-    marginBottom: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.35)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 5,
+    borderColor: '#ccc',
+    backgroundColor: '#f9f9f9',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 15,
+    fontSize: 16,
   },
-  eyeToggle: {
-    position: 'absolute',
-    right: 20,
-    top: 18, // ajuste selon la hauteur de ton input
-    zIndex: 10,
-  },
-
   button: {
-    marginTop: 20,
-    borderRadius: 30,
-    overflow: 'hidden',
-    shadowColor: '#00796B',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  gradientButton: {
+    backgroundColor: '#00796B',
     paddingVertical: 16,
+    borderRadius: 25,
     alignItems: 'center',
-
+    marginTop: 10,
+    shadowColor: '#004D40',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 7,
+    elevation: 6,
   },
   buttonText: {
-    color: '#ffffff',
-    fontSize: 18,
+    color: '#fff',
     fontWeight: 'bold',
-    letterSpacing: 1,
+    fontSize: 18,
+  },
+  toggle: {
+    fontSize: 22,
   },
   backButton: {
-    marginTop: 28,
+    marginTop: 30,
     alignItems: 'center',
   },
   backButtonText: {
-    color: '#b2dfdb',
+    color: '#00796B',
     fontWeight: '600',
     fontSize: 16,
   },

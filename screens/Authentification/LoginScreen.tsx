@@ -18,7 +18,8 @@ import { useNavigation } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '../../services/firebaseConfig';
+import { auth, db } from '../../services/firebaseConfig';
+import { getDoc, doc } from 'firebase/firestore';
 import { LinearGradient } from 'expo-linear-gradient';
 
 type LoginScreenProp = NativeStackNavigationProp<RootStackParamList, 'Login'>;
@@ -46,8 +47,20 @@ const LoginScreen = () => {
     setLoading(true);
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      navigation.navigate('Home');
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const uid = userCredential.user.uid;
+
+      // Récupérer le doc utilisateur dans Firestore
+      const userDoc = await getDoc(doc(db, 'users', uid));
+      const userData = userDoc.data();
+
+      if (userData?.entreprise) {
+        // Compte entreprise : rediriger vers GestionEntrepriseScreen
+        navigation.replace('GestionEntrepriseScreen');
+      } else {
+        // Compte personnel : rediriger vers HomeScreen
+        navigation.replace('HomeScreen');
+      }
     } catch (error: any) {
       Alert.alert('Erreur de connexion', error.message);
     } finally {
