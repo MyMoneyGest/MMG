@@ -1,3 +1,4 @@
+//GestionEntrepriseScreen
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -169,10 +170,10 @@ const EntrepriseScreen = () => {
       const userData = userDoc.data();
       console.log('🛠️ Données utilisateur:', userData); // 🔍 vérifie ici ce que Firestore retourne
 
-      if (!userData || !userData.enterpriseId) {
+      if (!userData || userData.type !== 'enterprise') {
         Alert.alert(
-          'Accès refusé',
-          'Vous devez rejoindre ou créer une entreprise pour accéder à cet espace.',
+          'Accès restreint',
+          'Seuls les comptes entreprise peuvent accéder à cet espace.',
           [{ text: 'OK', onPress: () => navigation.replace('UserTypeSelectionScreen') }],
           { cancelable: false }
         );

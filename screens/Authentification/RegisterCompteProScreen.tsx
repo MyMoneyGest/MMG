@@ -1,3 +1,4 @@
+// EnterpriseRegisterScreen.tsx
 import React, { useState } from 'react'; 
 import {
   View,
@@ -17,14 +18,21 @@ import {
   createUserWithEmailAndPassword,
   updateProfile,
 } from 'firebase/auth';
-import { setDoc, doc, serverTimestamp, updateDoc, getDoc,collection, addDoc} from 'firebase/firestore';
+import {
+  setDoc,
+  doc,
+  serverTimestamp,
+  updateDoc,
+  getDoc,
+  collection,
+  addDoc,
+} from 'firebase/firestore';
 import { auth, db } from '../../services/firebaseConfig';
 
 type RegisterScreenProp = NativeStackNavigationProp<RootStackParamList, 'Register'>;
 
 const EnterpriseRegisterScreen = () => {
   const navigation = useNavigation<RegisterScreenProp>();
-
   const [loading, setLoading] = useState(false);
   const [secure, setSecure] = useState(true);
 
@@ -44,25 +52,11 @@ const EnterpriseRegisterScreen = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // Validation email (inchangée)
   const validateEmail = (email: string) => {
-    const commonDomains = [
-      'gmail.com',
-      'hotmail.com',
-      'outlook.com',
-      'yahoo.com',
-      'icloud.com',
-      'protonmail.com',
-    ];
-    const genericTLD = /\.(com|fr|org|net|ga|io)$/i;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    if (!emailRegex.test(email)) return false;
-    const domain = email.split('@')[1].toLowerCase();
-    return commonDomains.includes(domain) || genericTLD.test(domain);
+    return emailRegex.test(email);
   };
 
-  // Fonction pour créer entreprise + user dans Firestore
   const createEnterpriseUser = async (
     user: any,
     enterpriseData: any,
@@ -71,21 +65,20 @@ const EnterpriseRegisterScreen = () => {
     const userDoc = {
       uid: user.uid,
       type: 'enterprise',
+      enterpriseId: user.uid, // ✅ Clé nécessaire
       createdAt: serverTimestamp(),
       entreprise: enterpriseData,
       dirigeant: managerData,
     };
-    // Créer doc utilisateur
+
     await setDoc(doc(db, 'users', user.uid), userDoc);
-    
-    // Créer doc entreprise avec id = uid utilisateur
+
     await setDoc(doc(db, 'enterprises', user.uid), {
       ...enterpriseData,
       createdAt: serverTimestamp(),
       createdBy: user.uid,
     });
 
-    // Créer doc manager (optionnel, dans sous-collection)
     await setDoc(doc(db, 'enterprises', user.uid, 'managers', user.uid), {
       ...managerData,
       createdAt: serverTimestamp(),
@@ -93,7 +86,6 @@ const EnterpriseRegisterScreen = () => {
     });
   };
 
-  // Fonction pour mettre à jour solde Airtel et ajouter transaction
   const updateBalanceAndAddTransaction = async (
     phoneNumber: string,
     amount: number,
@@ -104,41 +96,31 @@ const EnterpriseRegisterScreen = () => {
     const currentBalance = balanceSnap.exists() ? balanceSnap.data().balance : 0;
 
     if (balanceSnap.exists()) {
-    await updateDoc(balanceRef, {
-      balance: currentBalance + amount,
-      lastUpdated: serverTimestamp(),
-    });
-  } else {
-    await setDoc(balanceRef, {
-      balance: amount,
-      lastUpdated: serverTimestamp(),
-    });
-  }
+      await updateDoc(balanceRef, {
+        balance: currentBalance + amount,
+        lastUpdated: serverTimestamp(),
+      });
+    } else {
+      await setDoc(balanceRef, {
+        balance: amount,
+        lastUpdated: serverTimestamp(),
+      });
+    }
 
-    // Utilisation de addDoc pour ajouter une transaction unique
-  const transactionsRef = collection(db, 'transactions', phoneNumber, 'history');
-  await addDoc(transactionsRef, {
-    ...transactionDetails,
-    amount,
-    createdAt: serverTimestamp(),
-    phoneNumber,
-  });
-};
+    const transactionsRef = collection(db, 'transactions', phoneNumber, 'history');
+    await addDoc(transactionsRef, {
+      ...transactionDetails,
+      amount,
+      createdAt: serverTimestamp(),
+      phoneNumber,
+    });
+  };
 
   const handleRegister = async () => {
     if (
-      !enterpriseName ||
-      !rccm ||
-      !nif ||
-      !legalForm ||
-      !sector ||
-      !address ||
-      !phone ||
-      !managerName ||
-      !managerRole ||
-      !managerEmail ||
-      !password ||
-      !confirmPassword
+      !enterpriseName || !rccm || !nif || !legalForm ||
+      !sector || !address || !phone || !managerName ||
+      !managerRole || !managerEmail || !password || !confirmPassword
     ) {
       Alert.alert('Erreur', 'Tous les champs doivent être remplis.');
       return;
@@ -169,7 +151,6 @@ const EnterpriseRegisterScreen = () => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, managerEmail, password);
       const user = userCredential.user;
-
       await updateProfile(user, { displayName: managerName });
 
       const enterpriseData = {
@@ -181,6 +162,7 @@ const EnterpriseRegisterScreen = () => {
         adresse: address,
         telephone: phone,
       };
+
       const managerData = {
         nom: managerName,
         fonction: managerRole,
@@ -188,30 +170,8 @@ const EnterpriseRegisterScreen = () => {
         telephone: phone,
       };
 
-      const userData = {
-        uid: user.uid,
-        type: 'enterprise',
-        createdAt: new Date(),
-        entreprise: {
-          nom: enterpriseName,
-          rccm,
-          nif,
-          formeJuridique: legalForm,
-          secteur: sector,
-          adresse: address,
-          telephone: phone,
-          creatorUid: user.uid,  // Ajouté ici
-        },
-        dirigeant: {
-          nom: managerName,
-          fonction: managerRole,
-          email: managerEmail,
-        },
-      };
-
       await createEnterpriseUser(user, enterpriseData, managerData);
 
-      // Exemple: initialiser solde Airtel du manager à 0 avec transaction d'inscription
       await updateBalanceAndAddTransaction(phone, 0, {
         reference: 'inscription',
         type: 'initial',
@@ -221,7 +181,8 @@ const EnterpriseRegisterScreen = () => {
       });
 
       Alert.alert('Succès', 'Compte entreprise créé avec succès.');
-      navigation.navigate('GestionEntrepriseScreen');
+      navigation.replace('GestionEntrepriseScreen'); // ✅ navigation directe vers écran entreprise
+
     } catch (error: any) {
       if (error.code === 'auth/email-already-in-use') {
         Alert.alert('Erreur', 'Cet email est déjà utilisé.');
@@ -241,16 +202,15 @@ const EnterpriseRegisterScreen = () => {
       <TextInput style={styles.input} placeholder="Raison sociale" value={enterpriseName} onChangeText={setEnterpriseName} />
       <TextInput style={styles.input} placeholder="Numéro RCCM (14 chiffres min.)" value={rccm} onChangeText={setRccm} keyboardType="number-pad" />
       <TextInput style={styles.input} placeholder="Numéro NIF" value={nif} onChangeText={setNif} />
-      <TextInput style={styles.input} placeholder="Forme juridique (SARL, SA...)" value={legalForm} onChangeText={setLegalForm} />
+      <TextInput style={styles.input} placeholder="Forme juridique" value={legalForm} onChangeText={setLegalForm} />
       <TextInput style={styles.input} placeholder="Secteur d'activité" value={sector} onChangeText={setSector} />
-      <TextInput style={styles.input} placeholder="Adresse du siège social" value={address} onChangeText={setAddress} />
+      <TextInput style={styles.input} placeholder="Adresse du siège" value={address} onChangeText={setAddress} />
       <TextInput style={styles.input} placeholder="Téléphone professionnel" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
 
-      {/* Champs dirigeant */}
       <Text style={styles.sectionTitle}>Informations du dirigeant</Text>
       <TextInput style={styles.input} placeholder="Nom et prénom" value={managerName} onChangeText={setManagerName} />
-      <TextInput style={styles.input} placeholder="Fonction (Gérant, DG...)" value={managerRole} onChangeText={setManagerRole} />
-      <TextInput style={styles.input} placeholder="Email du dirigeant" value={managerEmail} onChangeText={setManagerEmail} autoCapitalize="none" keyboardType="email-address" />
+      <TextInput style={styles.input} placeholder="Fonction" value={managerRole} onChangeText={setManagerRole} />
+      <TextInput style={styles.input} placeholder="Email" value={managerEmail} onChangeText={setManagerEmail} autoCapitalize="none" keyboardType="email-address" />
       <TextInput style={styles.input} placeholder="Mot de passe" value={password} onChangeText={setPassword} secureTextEntry={secure} />
       <TextInput style={styles.input} placeholder="Confirmer mot de passe" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry={secure} />
 

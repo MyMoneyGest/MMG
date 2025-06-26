@@ -1,11 +1,12 @@
+//CreateEntrepriseScreen
 import React, { useState } from 'react';
 import { View, TextInput, Button, Alert, StyleSheet } from 'react-native';
-import { auth, db } from '../services/firebaseConfig';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+
 import { RouteProp } from '@react-navigation/native';
 import { useNavigation } from '@react-navigation/native';
-import { RootStackParamList } from '../navigation/AppNavigator'; // Assure-toi que c'est le bon chemin
+import { RootStackParamList } from '../navigation/AppNavigator'; 
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { createEnterpriseUser } from '../services/enterpriseService'; // Nouveau import
 
 type CreateEnterpriseScreenRouteProp = RouteProp<RootStackParamList, 'CreateEnterpriseScreen'>;
 
@@ -16,82 +17,80 @@ interface CreateEnterpriseScreenProps {
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'GestionEntrepriseScreen'>;
 
 const CreateEnterpriseScreen: React.FC<CreateEnterpriseScreenProps> = ({ route }) => {
+  // Récupère userId depuis route params
   const userId = route.params?.userId;
 
   if (!userId) {
-    Alert.alert('Erreur', 'ID utilisateur manquant');
+    Alert.alert('Erreur', "ID utilisateur manquant");
     return null;
   }
 
-  const [name, setName] = useState('');
-  const [siret, setSiret] = useState('');
+  const [nom, setNom] = useState('');
+  const [rccm, setRccm] = useState('');
+  const [nif, setNif] = useState('');
+  const [formeJuridique, setFormeJuridique] = useState('');
+  const [secteur, setSecteur] = useState('');
+  const [adresse, setAdresse] = useState('');
+  const [telephone, setTelephone] = useState('');
+
+  // Données dirigeant (simplifié ici, mais tu peux ajouter un form complet)
+  const [managerNom, setManagerNom] = useState('');
+  const [managerFonction, setManagerFonction] = useState('');
+  const [managerEmail, setManagerEmail] = useState('');
+
   const [loading, setLoading] = useState(false);
-  const navigation = useNavigation<NavigationProp>(); // Correctement typé
+  const navigation = useNavigation<NavigationProp>();
+
+  // Simule la récupération de l'utilisateur connecté (typiquement via auth.currentUser)
+  // Ici on passe userId via params donc on l’utilise directement
+  // À adapter selon ta logique d'authentification réelle
+  const user = {
+    uid: userId,
+    email: 'exemple@mail.com', // À récupérer dynamiquement en vrai
+    displayName: managerNom || undefined,
+  };
 
   const createEnterprise = async () => {
-    if (!name.trim() || !siret.trim()) {
-      Alert.alert('Erreur', 'Merci de remplir tous les champs');
-      return;
-    }
+  // Vérification basique des champs obligatoires
+  if (!nom.trim() || !rccm.trim() || !nif.trim() || !managerNom.trim() || !managerEmail.trim()) {
+    Alert.alert('Erreur', 'Merci de remplir tous les champs obligatoires');
+    return;
+  }
 
-    const user = auth.currentUser;
-    if (!user) {
-      Alert.alert('Erreur', 'Utilisateur non connecté');
-      return;
-    }
+  setLoading(true);
 
-    setLoading(true);
+  try {
+    // Prépare les objets enterpriseData et managerData
+    const enterpriseData = { nom, rccm, nif, formeJuridique, secteur, adresse, telephone };
+    const managerData = { nom: managerNom, fonction: managerFonction, email: managerEmail };
 
-    try {
-      const enterpriseRef = doc(db, 'enterprises', userId);
+    await createEnterpriseUser(user, enterpriseData, managerData);
 
-      // Création de l'entreprise dans Firestore
-      await setDoc(enterpriseRef, {
-        name,
-        siret,
-        createdAt: serverTimestamp(),
-        ownerUid: user.uid,
-      });
-
-      // Mise à jour de l'utilisateur
-      const userRef = doc(db, 'users', user.uid);
-      await setDoc(userRef, {
-        enterpriseId: userId,
-        accountType: 'enterprise',
-        enterpriseName: name,
-        enterpriseSiret: siret,
-      }, { merge: true });
-
-      // Redirige l'utilisateur vers l'écran de gestion de l'entreprise
-      navigation.navigate('GestionEntrepriseScreen'); // Navigation vers l'écran entreprise
-      Alert.alert('Succès', 'Entreprise créée avec succès !');
-    } catch (error) {
-      console.error('Erreur création entreprise:', error);
-      Alert.alert('Erreur', 'Une erreur est survenue, veuillez réessayer');
-    } finally {
-      setLoading(false);
-    }
-  };
+    Alert.alert('Succès', 'Entreprise créée avec succès !');
+    navigation.navigate('GestionEntrepriseScreen');
+  } catch (error: any) {
+    console.error('Erreur création entreprise:', error);
+    Alert.alert('Erreur', error.message || "La création de l'entreprise a échoué.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <View style={styles.container}>
-      <TextInput
-        placeholder="Nom de l'entreprise"
-        value={name}
-        onChangeText={setName}
-        style={styles.input}
-      />
-      <TextInput
-        placeholder="SIRET"
-        value={siret}
-        onChangeText={setSiret}
-        style={styles.input}
-      />
-      <Button
-        title={loading ? "Création..." : "Créer l'entreprise"}
-        onPress={createEnterprise} // Appel à la fonction de création d'entreprise
-        disabled={loading}
-      />
+      <TextInput placeholder="Nom de l'entreprise *" value={nom} onChangeText={setNom} style={styles.input} />
+      <TextInput placeholder="RCCM *" value={rccm} onChangeText={setRccm} style={styles.input} />
+      <TextInput placeholder="NIF *" value={nif} onChangeText={setNif} style={styles.input} />
+      <TextInput placeholder="Forme Juridique" value={formeJuridique} onChangeText={setFormeJuridique} style={styles.input} />
+      <TextInput placeholder="Secteur" value={secteur} onChangeText={setSecteur} style={styles.input} />
+      <TextInput placeholder="Adresse" value={adresse} onChangeText={setAdresse} style={styles.input} />
+      <TextInput placeholder="Téléphone" value={telephone} onChangeText={setTelephone} style={styles.input} />
+
+      <TextInput placeholder="Nom du dirigeant *" value={managerNom} onChangeText={setManagerNom} style={styles.input} />
+      <TextInput placeholder="Fonction du dirigeant" value={managerFonction} onChangeText={setManagerFonction} style={styles.input} />
+      <TextInput placeholder="Email du dirigeant *" value={managerEmail} onChangeText={setManagerEmail} style={styles.input} />
+
+      <Button title={loading ? "Création..." : "Créer l'entreprise"} onPress={createEnterprise} disabled={loading} />
     </View>
   );
 };
@@ -99,37 +98,6 @@ const CreateEnterpriseScreen: React.FC<CreateEnterpriseScreenProps> = ({ route }
 export default CreateEnterpriseScreen;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 20,
-    backgroundColor: '#f9f9f9',
-  },
-  input: {
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    padding: 10,
-    borderRadius: 5,
-    fontSize: 16,
-    backgroundColor: '#fff',
-  },
-  button: {
-    backgroundColor: '#4CAF50',
-    padding: 12,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-  },
-  disabledButton: {
-    backgroundColor: '#B0BEC5',
-  },
-  loadingText: {
-    color: '#fff',
-    fontSize: 16,
-  },
+  container: { flex: 1, justifyContent: 'center', padding: 20, backgroundColor: '#f9f9f9' },
+  input: { marginBottom: 15, borderWidth: 1, borderColor: '#ddd', padding: 10, borderRadius: 5, fontSize: 16, backgroundColor: '#fff' },
 });

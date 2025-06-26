@@ -12,7 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 
-type HomeScreenProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
+type HomeScreenProp = NativeStackNavigationProp<RootStackParamList, 'HomeScreen'>;
 
 const HomeScreen = () => {
   const navigation = useNavigation<HomeScreenProp>();
@@ -141,5 +141,5 @@ const styles = StyleSheet.create({
   buttonIcon: {
     marginRight: 10,
   },
-  
+
 });

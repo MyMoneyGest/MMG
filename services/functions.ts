@@ -1,3 +1,4 @@
+//functions (client)
 import { httpsCallable } from 'firebase/functions';
 import { functions } from './firebaseConfig';
 
