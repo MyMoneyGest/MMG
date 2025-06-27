@@ -33,17 +33,17 @@ import DepenseProfessionnellesScreen from '../Entreprise/DepenseProfessionnelles
 import FacturesScreen from '../Entreprise/FacturesScreen';
 import EntrepriseRapportsScreen from '../Entreprise/EntrepriseRapportsScreen';
 import UserTypeSelectionScreen from '../screens/Authentification/UserTypeSelectionScreen';
-import EnterEnterpriseCodeScreen from '../screens/Authentification/EnterEnterpriseCodeScreen';
+import EntrepriseCodeScreen from '../screens/Authentification/EntrepriseCodeScreen';
+import CreerEntrepriseScreen from '../Entreprise/CreerEntrepriseScreen';
 import SendConfirmationCodeScreen from '../screens/Authentification/SendConfirmationCodeScreen';
-import CreateEnterpriseScreen from '../Entreprise/CreateEnterpriseScreen';
 import DevisScreen from '../Entreprise/DevisScreen';
 import DocumentsScreen from '../Entreprise/DocumentsScreen';
 import ProjectsScreen from '../Entreprise/ProjectsScreen';
 import ClientsScreen from '../Entreprise/ClientsScreen';
 import SupportScreen from '../Entreprise/SupportScreen';
-import EnterpriseInfoScreen from '../Entreprise/EnterpriseInfoScreen';
+import EntrepriseInfoScreen from '../Entreprise/EntrepriseInfoScreen';
 import CollaboratorsScreen from '../Entreprise/CollaboratorsScreen';
-import AjouterCollaborateurScreen from '../Entreprise/AjouterCollaborateurScreen.tsx';
+import AjouterCollaborateurScreen from '../Entreprise/AjouterCollaborateurScreen';
 
 export type RootStackParamList = {
   // ...autres écrans
@@ -112,16 +112,16 @@ export type RootStackParamList = {
   FacturesScreen : undefined;
   EntrepriseRapportsScreen : undefined;
   UserTypeSelectionScreen : undefined;
-  EnterEnterpriseCodeScreen : undefined;
+  EntrepriseCodeScreen : undefined;
+  CreerEntrepriseScreen: { userId: string };
   SendConfirmationCodeScreen : undefined;
-  CreateEnterpriseScreen: { userId: string };
   ProjectsScreen: undefined;
   DevisScreen : undefined;
   DocumentsScreen : undefined;
   ClientsScreen : undefined;
   AjouterCollaborateurScreen : undefined;
   SupportScreen : undefined;
-  EnterpriseInfoScreen : undefined;
+  EntrepriseInfoScreen : undefined;
   CollaboratorsScreen : undefined;
 };
 
@@ -179,16 +179,16 @@ const AppNavigator = ({ initialRoute }: AppNavigatorProps) => {
       <Stack.Screen name="FacturesScreen" component={FacturesScreen} />
       <Stack.Screen name="EntrepriseRapportsScreen" component={EntrepriseRapportsScreen} />
       <Stack.Screen name="UserTypeSelectionScreen" component={UserTypeSelectionScreen} />
-      <Stack.Screen name="EnterEnterpriseCodeScreen" component={EnterEnterpriseCodeScreen} />
+      <Stack.Screen name="EntrepriseCodeScreen" component={EntrepriseCodeScreen} />
       <Stack.Screen name="SendConfirmationCodeScreen" component={SendConfirmationCodeScreen} />
-      <Stack.Screen name="CreateEnterpriseScreen" component={CreateEnterpriseScreen} />
+      <Stack.Screen name="CreerEntrepriseScreen" component={CreerEntrepriseScreen} />
       <Stack.Screen name="ProjectsScreen" component={ProjectsScreen} />
       <Stack.Screen name="DocumentsScreen" component={DocumentsScreen} />
       <Stack.Screen name="DevisScreen" component={DevisScreen} />
       <Stack.Screen name="ClientsScreen" component={ClientsScreen} />
       <Stack.Screen name="AjouterCollaborateurScreen" component={AjouterCollaborateurScreen} />
       <Stack.Screen name="SupportScreen" component={SupportScreen} />
-      <Stack.Screen name="EnterpriseInfoScreen" component={EnterpriseInfoScreen} />
+      <Stack.Screen name="EntrepriseInfoScreen" component={EntrepriseInfoScreen} />
       <Stack.Screen name="CollaboratorsScreen" component={CollaboratorsScreen} />
 
     </Stack.Navigator>

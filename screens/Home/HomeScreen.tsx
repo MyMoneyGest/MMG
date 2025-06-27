@@ -48,7 +48,7 @@ const HomeScreen = () => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.button, styles.enterpriseBtn]}
+              style={[styles.button, styles.entrepriseBtn]}
               onPress={() => navigation.navigate('GestionEntrepriseScreen')}
               activeOpacity={0.85}
             >
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
   individualBtn: {
     backgroundColor: '#00796B',
   },
-  enterpriseBtn: {
+  entrepriseBtn: {
     backgroundColor: '#004D40',
   },
   buttonText: {

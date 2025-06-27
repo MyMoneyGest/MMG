@@ -8,7 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
  * @param expiresInMinutes Durée de validité du code en minutes
  * @returns Code généré
  */
-export const generateEnterpriseCode = async (
+export const generateEntrepriseCode = async (
   entrepriseId: string,
   expiresInMinutes: number = 60
 ): Promise<string> => {
@@ -18,7 +18,7 @@ export const generateEnterpriseCode = async (
   const now = new Date();
   const expiresAt = new Date(now.getTime() + expiresInMinutes * 60 * 1000);
 
-  const codeRef = doc(collection(db, 'enterpriseCodes'), code);
+  const codeRef = doc(collection(db, 'entrepriseCodes'), code);
 
   await setDoc(codeRef, {
     code,

@@ -1,4 +1,4 @@
-// EnterpriseRegisterScreen.tsx
+// EntrepriseRegisterScreen.tsx
 import React, { useState } from 'react'; 
 import {
   View,
@@ -31,13 +31,13 @@ import { auth, db } from '../../services/firebaseConfig';
 
 type RegisterScreenProp = NativeStackNavigationProp<RootStackParamList, 'Register'>;
 
-const EnterpriseRegisterScreen = () => {
+const EntrepriseRegisterScreen = () => {
   const navigation = useNavigation<RegisterScreenProp>();
   const [loading, setLoading] = useState(false);
   const [secure, setSecure] = useState(true);
 
   // Champs entreprise
-  const [enterpriseName, setEnterpriseName] = useState('');
+  const [entrepriseName, setEntrepriseName] = useState('');
   const [rccm, setRccm] = useState('');
   const [nif, setNif] = useState('');
   const [legalForm, setLegalForm] = useState('');
@@ -57,29 +57,29 @@ const EnterpriseRegisterScreen = () => {
     return emailRegex.test(email);
   };
 
-  const createEnterpriseUser = async (
+  const createEntrepriseUser = async (
     user: any,
-    enterpriseData: any,
+    entrepriseData: any,
     managerData: any
   ) => {
     const userDoc = {
       uid: user.uid,
-      type: 'enterprise',
-      enterpriseId: user.uid, // ✅ Clé nécessaire
+      type: 'entreprise',
+      entrepriseId: user.uid, // ✅ Clé nécessaire
       createdAt: serverTimestamp(),
-      entreprise: enterpriseData,
+      entreprise: entrepriseData,
       dirigeant: managerData,
     };
 
     await setDoc(doc(db, 'users', user.uid), userDoc);
 
-    await setDoc(doc(db, 'enterprises', user.uid), {
-      ...enterpriseData,
+    await setDoc(doc(db, 'entreprises', user.uid), {
+      ...entrepriseData,
       createdAt: serverTimestamp(),
       createdBy: user.uid,
     });
 
-    await setDoc(doc(db, 'enterprises', user.uid, 'managers', user.uid), {
+    await setDoc(doc(db, 'entreprises', user.uid, 'managers', user.uid), {
       ...managerData,
       createdAt: serverTimestamp(),
       uid: user.uid,
@@ -118,7 +118,7 @@ const EnterpriseRegisterScreen = () => {
 
   const handleRegister = async () => {
     if (
-      !enterpriseName || !rccm || !nif || !legalForm ||
+      !entrepriseName || !rccm || !nif || !legalForm ||
       !sector || !address || !phone || !managerName ||
       !managerRole || !managerEmail || !password || !confirmPassword
     ) {
@@ -153,8 +153,8 @@ const EnterpriseRegisterScreen = () => {
       const user = userCredential.user;
       await updateProfile(user, { displayName: managerName });
 
-      const enterpriseData = {
-        nom: enterpriseName,
+      const entrepriseData = {
+        nom: entrepriseName,
         rccm,
         nif,
         formeJuridique: legalForm,
@@ -170,7 +170,7 @@ const EnterpriseRegisterScreen = () => {
         telephone: phone,
       };
 
-      await createEnterpriseUser(user, enterpriseData, managerData);
+      await createEntrepriseUser(user, entrepriseData, managerData);
 
       await updateBalanceAndAddTransaction(phone, 0, {
         reference: 'inscription',
@@ -199,7 +199,7 @@ const EnterpriseRegisterScreen = () => {
       <Text style={styles.title}>Inscription Entreprise</Text>
 
       {/* Champs entreprise */}
-      <TextInput style={styles.input} placeholder="Raison sociale" value={enterpriseName} onChangeText={setEnterpriseName} />
+      <TextInput style={styles.input} placeholder="Raison sociale" value={entrepriseName} onChangeText={setEntrepriseName} />
       <TextInput style={styles.input} placeholder="Numéro RCCM (14 chiffres min.)" value={rccm} onChangeText={setRccm} keyboardType="number-pad" />
       <TextInput style={styles.input} placeholder="Numéro NIF" value={nif} onChangeText={setNif} />
       <TextInput style={styles.input} placeholder="Forme juridique" value={legalForm} onChangeText={setLegalForm} />
@@ -229,7 +229,7 @@ const EnterpriseRegisterScreen = () => {
   );
 };
 
-export default EnterpriseRegisterScreen;
+export default EntrepriseRegisterScreen;
 
 const styles = StyleSheet.create({
   container: {

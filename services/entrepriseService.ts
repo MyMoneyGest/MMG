@@ -53,7 +53,7 @@ interface Enterprise {
  * @param enterpriseData - Données de l'entreprise
  * @param managerData - Données du dirigeant
  */
-export async function createEnterpriseUser(
+export async function creerEnterpriseUser(
   user: { uid: string; email: string; displayName?: string },
   enterpriseData: EnterpriseData,
   managerData: ManagerData

@@ -1,3 +1,4 @@
+//EnterEntrepriseCodeScreen
 import React, { useState } from 'react';
 import {
   View,
@@ -17,9 +18,9 @@ import { db, auth } from '../../services/firebaseConfig';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { LinearGradient } from 'expo-linear-gradient';
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'EnterEnterpriseCodeScreen'>;
+type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'EntrepriseCodeScreen'>;
 
-const EnterEnterpriseCodeScreen = () => {
+const EntrepriseCodeScreen = () => {
   const navigation = useNavigation<NavigationProp>();
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -33,7 +34,7 @@ const EnterEnterpriseCodeScreen = () => {
     setLoading(true);
 
     try {
-      const codeRef = doc(db, 'enterpriseCodes', code.trim());
+      const codeRef = doc(db, 'entrepriseCodes', code.trim());
       const codeSnap = await getDoc(codeRef);
 
       if (!codeSnap.exists()) {
@@ -110,7 +111,7 @@ const EnterEnterpriseCodeScreen = () => {
   );
 };
 
-export default EnterEnterpriseCodeScreen;
+export default EntrepriseCodeScreen;
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

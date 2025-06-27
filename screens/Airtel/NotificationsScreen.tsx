@@ -14,8 +14,9 @@ import {
   doc,
   updateDoc,
   query,
-  where,
+
   orderBy,
+  getDoc,
 } from 'firebase/firestore';
 import { db } from '../../services/firebaseConfig';
 
@@ -26,28 +27,47 @@ const NotificationsScreen = () => {
   const user = getAuth().currentUser;
 
   useEffect(() => {
-    if (!user) return;
-
     const fetchNotifications = async () => {
-      const ref = collection(db, 'users', user.uid, 'notifications');
-      const q = query(ref, orderBy('date', 'desc'));
-      const snapshot = await getDocs(q);
+      if (!user) return;
 
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      try {
+        // 1. Récupérer le user
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const userData = userDoc.data();
 
-      setNotifications(data);
-      setLoading(false);
+        if (!userData) return;
 
-      // Marquer toutes comme lues
-      for (const notif of snapshot.docs) {
-        if (!notif.data().read) {
-          await updateDoc(doc(db, 'users', user.uid, 'notifications', notif.id), {
-            read: true,
-          });
+        let notifRef;
+
+        // 2. Choisir la bonne source
+        if (userData.type === 'entreprise' && userData.entrepriseId) {
+          notifRef = collection(db, 'entreprises', userData.entrepriseId, 'notifications');
+        } else {
+          notifRef = collection(db, 'users', user.uid, 'notifications');
         }
+
+        // 3. Récupérer les notifications triées
+        const q = query(notifRef, orderBy('date', 'desc'));
+        const snapshot = await getDocs(q);
+
+        const data = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+
+        setNotifications(data);
+
+        // 4. Marquer comme lues si non lues
+        for (const notif of snapshot.docs) {
+          if (!notif.data().opened) {
+            await updateDoc(doc(notifRef, notif.id), { opened: true });
+          }
+        }
+
+      } catch (error) {
+        console.error('Erreur récupération notifications :', error);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -90,6 +110,7 @@ const NotificationsScreen = () => {
 };
 
 export default NotificationsScreen;
+
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#E0F2F1', padding: 20 },

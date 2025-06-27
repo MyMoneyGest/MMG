@@ -21,6 +21,7 @@ import { RootStackParamList } from '../navigation/AppNavigator';
 import { getDoc, doc } from 'firebase/firestore';
 import { auth, db } from '../services/firebaseConfig';
 import { collection, onSnapshot } from 'firebase/firestore';
+import { updateDoc } from 'firebase/firestore';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'GestionEntrepriseScreen'>;
 
@@ -75,14 +76,14 @@ type HeaderProps = {
   isAdmin: boolean;
   navigation: NavigationProp;
   notificationCount: number;
-  enterpriseName: string;
+  entrepriseName: string;
 };
 
 const HeaderWithMenuAndNotif: React.FC<HeaderProps> = ({
   isAdmin,
   navigation,
   notificationCount,
-  enterpriseName,
+  entrepriseName,
 }) => {
   const [menuVisible, setMenuVisible] = useState(false);
 
@@ -105,7 +106,7 @@ const HeaderWithMenuAndNotif: React.FC<HeaderProps> = ({
         navigation.navigate('CollaboratorsScreen');
         break;
       case 'infos':
-        navigation.navigate('EnterpriseInfoScreen');
+        navigation.navigate('EntrepriseInfoScreen');
         break;
       case 'support':
         navigation.navigate('SupportScreen');
@@ -130,7 +131,7 @@ const HeaderWithMenuAndNotif: React.FC<HeaderProps> = ({
       </Modal>
 
       <Text style={styles.headerTitle}>Espace Entreprise</Text>
-      <Text style={styles.enterpriseNameHeader}>{enterpriseName}</Text>
+      <Text style={styles.entrepriseNameHeader}>{entrepriseName}</Text>
 
       <TouchableOpacity
         style={styles.notificationButton}
@@ -152,7 +153,7 @@ const EntrepriseScreen = () => {
 
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [enterpriseName, setEnterpriseName] = useState('Entreprise');
+  const [entrepriseName, setentrepriseName] = useState('Entreprise');
   const [notificationCount, setNotificationCount] = useState(0);
 
   useEffect(() => {
@@ -164,13 +165,32 @@ const EntrepriseScreen = () => {
     }
 
     try {
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      console.log('✅ userDoc data raw:', userDoc.data());
-
+      const userRef = doc(db, 'users', user.uid);
+      const userDoc = await getDoc(userRef);
       const userData = userDoc.data();
-      console.log('🛠️ Données utilisateur:', userData); // 🔍 vérifie ici ce que Firestore retourne
 
-      if (!userData || userData.type !== 'enterprise') {
+      console.log('✅ Données utilisateur :', userData);
+
+      if (!userData) {
+        Alert.alert(
+          'Erreur',
+          'Impossible de charger vos informations utilisateur.',
+          [{ text: 'OK', onPress: () => navigation.replace('UserTypeSelectionScreen') }],
+          { cancelable: false }
+        );
+        return;
+      }
+
+      console.log('DEBUG type:', userData.type, 'entrepriseId:', userData.entrepriseId);
+
+      // 🔁 Migration automatique si type est "entreprise"
+      if (userData.type === 'entreprise') {
+        console.log('🛠️ Migration vers "entreprise"...');
+        await updateDoc(userRef, { type: 'entreprise' });
+      }
+
+      // ❌ Accès interdit si ce n’est pas un compte entreprise
+      if (userData.type !== 'entreprise') {
         Alert.alert(
           'Accès restreint',
           'Seuls les comptes entreprise peuvent accéder à cet espace.',
@@ -180,10 +200,21 @@ const EntrepriseScreen = () => {
         return;
       }
 
-      // Récupère les données de l’entreprise depuis la collection enterprises
-      const enterpriseDoc = await getDoc(doc(db, 'enterprises', userData.enterpriseId));
-      console.log('✅ enterpriseDoc data raw:', enterpriseDoc.data);
-      if (!enterpriseDoc.exists()) {
+      // ⚠️ Vérification existence de l’ID d’entreprise
+      if (!userData.entrepriseId) {
+        Alert.alert(
+          'Erreur',
+          "Votre compte n'est pas lié à une entreprise. Veuillez contacter l’assistance.",
+          [{ text: 'OK', onPress: () => navigation.replace('UserTypeSelectionScreen') }],
+          { cancelable: false }
+        );
+        return;
+      }
+
+      const entrepriseRef = doc(db, 'entreprises', userData.entrepriseId);
+      const entrepriseDoc = await getDoc(entrepriseRef);
+
+      if (!entrepriseDoc.exists()) {
         Alert.alert(
           'Erreur',
           "L'entreprise associée à votre compte n'a pas été trouvée.",
@@ -193,16 +224,15 @@ const EntrepriseScreen = () => {
         return;
       }
 
-      const entreprise = enterpriseDoc.data();
-      console.log('🏢 Données entreprise:', entreprise);
+      const entreprise = entrepriseDoc.data();
+      console.log('🏢 Données entreprise :', entreprise);
 
-
-      setEnterpriseName(entreprise?.nom || 'Entreprise');
+      setentrepriseName(entreprise?.nom || 'Entreprise');
       setIsAdmin(entreprise?.createdBy === user.uid);
-      setNotificationCount(3); // Exemple temporaire ou mettre ta logique ici
+      setNotificationCount(3); // à remplacer par ta logique réelle
 
     } catch (error) {
-      console.error('Erreur de chargement:', error); // Pour debug
+      console.error('❌ Erreur de chargement :', error);
       Alert.alert('Erreur', "Impossible de charger les données de l’entreprise.");
       navigation.replace('UserTypeSelectionScreen');
     } finally {
@@ -267,7 +297,7 @@ const EntrepriseScreen = () => {
         isAdmin={isAdmin}
         navigation={navigation}
         notificationCount={notificationCount}
-        enterpriseName={enterpriseName}
+        entrepriseName={entrepriseName}
       />
 
 
@@ -396,7 +426,7 @@ const styles = StyleSheet.create({
     color: '#004D40',
     marginLeft: 10,
   },
-  enterpriseName: {
+  entrepriseName: {
     fontSize: 20,
     fontWeight: '600',
     color: '#b2dfdb',
@@ -464,7 +494,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#004D40',
   },
-  enterpriseNameHeader: {
+  entrepriseNameHeader: {
     fontSize: 14,
     fontWeight: '500',
     color: '#004D40',

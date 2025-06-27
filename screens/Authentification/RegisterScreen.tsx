@@ -121,7 +121,7 @@ const RegisterScreen = () => {
               <Text style={styles.accountTypeText}>Compte Personnel</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.accountTypeButton, styles.enterpriseButton]}
+              style={[styles.accountTypeButton, styles.entrepriseButton]}
               onPress={() => navigation.navigate('RegisterCompteProScreen')}
               activeOpacity={0.8}
             >
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 5,
   },
-  enterpriseButton: {
+  entrepriseButton: {
     backgroundColor: '#004D40',
   },
   accountTypeText: {

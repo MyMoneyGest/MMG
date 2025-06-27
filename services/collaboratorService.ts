@@ -19,7 +19,7 @@ interface CollaboratorUser {
   type: 'collaborator';
   createdAt: any; // serverTimestamp()
   displayName: string;
-  enterpriseId: string; // UID de l’entreprise (dirigeant)
+  entrepriseId: string; // UID de l’entreprise (dirigeant)
   collaboratorInfo: CollaboratorData;
 }
 
@@ -28,12 +28,12 @@ interface CollaboratorUser {
  *
  * @param user - objet user { uid, email, displayName }
  * @param collaboratorData - données du collaborateur (nom, fonction, etc.)
- * @param enterpriseId - uid de l’entreprise à laquelle le collaborateur est rattaché
+ * @param entrepriseId - uid de l’entreprise à laquelle le collaborateur est rattaché
  */
 export async function createCollaboratorUser(
   user: { uid: string; email: string; displayName?: string },
   collaboratorData: CollaboratorData,
-  enterpriseId: string
+  entrepriseId: string
 ) {
   try {
     const collaboratorUserDoc: CollaboratorUser = {
@@ -42,7 +42,7 @@ export async function createCollaboratorUser(
       type: 'collaborator',
       createdAt: serverTimestamp(),
       displayName: user.displayName || `${collaboratorData.prenom} ${collaboratorData.nom}`,
-      enterpriseId,
+      entrepriseId,
       collaboratorInfo: collaboratorData,
     };
 

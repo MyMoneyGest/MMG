@@ -6,17 +6,17 @@ import { RouteProp } from '@react-navigation/native';
 import { useNavigation } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/AppNavigator'; 
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { createEnterpriseUser } from '../services/enterpriseService'; // Nouveau import
+import { creerEnterpriseUser } from '../services/entrepriseService'; // Nouveau import
 
-type CreateEnterpriseScreenRouteProp = RouteProp<RootStackParamList, 'CreateEnterpriseScreen'>;
+type CreerEntrepriseScreenRouteProp = RouteProp<RootStackParamList, 'CreerEntrepriseScreen'>;
 
-interface CreateEnterpriseScreenProps {
-  route: CreateEnterpriseScreenRouteProp;
+interface CreerEntrepriseScreenProps {
+  route: CreerEntrepriseScreenRouteProp;
 }
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'GestionEntrepriseScreen'>;
 
-const CreateEnterpriseScreen: React.FC<CreateEnterpriseScreenProps> = ({ route }) => {
+const CreerEntrepriseScreen: React.FC<CreerEntrepriseScreenProps> = ({ route }) => {
   // Récupère userId depuis route params
   const userId = route.params?.userId;
 
@@ -50,7 +50,7 @@ const CreateEnterpriseScreen: React.FC<CreateEnterpriseScreenProps> = ({ route }
     displayName: managerNom || undefined,
   };
 
-  const createEnterprise = async () => {
+  const creerEntreprise = async () => {
   // Vérification basique des champs obligatoires
   if (!nom.trim() || !rccm.trim() || !nif.trim() || !managerNom.trim() || !managerEmail.trim()) {
     Alert.alert('Erreur', 'Merci de remplir tous les champs obligatoires');
@@ -60,11 +60,11 @@ const CreateEnterpriseScreen: React.FC<CreateEnterpriseScreenProps> = ({ route }
   setLoading(true);
 
   try {
-    // Prépare les objets enterpriseData et managerData
-    const enterpriseData = { nom, rccm, nif, formeJuridique, secteur, adresse, telephone };
+    // Prépare les objets entrepriseData et managerData
+    const entrepriseData = { nom, rccm, nif, formeJuridique, secteur, adresse, telephone };
     const managerData = { nom: managerNom, fonction: managerFonction, email: managerEmail };
 
-    await createEnterpriseUser(user, enterpriseData, managerData);
+    await creerEnterpriseUser(user, entrepriseData, managerData);
 
     Alert.alert('Succès', 'Entreprise créée avec succès !');
     navigation.navigate('GestionEntrepriseScreen');
@@ -90,12 +90,12 @@ const CreateEnterpriseScreen: React.FC<CreateEnterpriseScreenProps> = ({ route }
       <TextInput placeholder="Fonction du dirigeant" value={managerFonction} onChangeText={setManagerFonction} style={styles.input} />
       <TextInput placeholder="Email du dirigeant *" value={managerEmail} onChangeText={setManagerEmail} style={styles.input} />
 
-      <Button title={loading ? "Création..." : "Créer l'entreprise"} onPress={createEnterprise} disabled={loading} />
+      <Button title={loading ? "Création..." : "Créer l'entreprise"} onPress={creerEntreprise} disabled={loading} />
     </View>
   );
 };
 
-export default CreateEnterpriseScreen;
+export default CreerEntrepriseScreen;
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', padding: 20, backgroundColor: '#f9f9f9' },

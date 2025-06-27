@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-nat
 import { auth, db } from '../services/firebaseConfig';
 import { doc, getDoc } from 'firebase/firestore';
 
-const EnterpriseInfoScreen = () => {
+const EntrepriseInfoScreen = () => {
   const [info, setInfo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -39,7 +39,7 @@ const EnterpriseInfoScreen = () => {
   );
 };
 
-export default EnterpriseInfoScreen;
+export default EntrepriseInfoScreen;
 
 const styles = StyleSheet.create({
   container: { flexGrow: 1, padding: 20, backgroundColor: '#fff' },

@@ -20,8 +20,8 @@ type UserTypeScreenProp = NativeStackNavigationProp<RootStackParamList, 'UserTyp
 const UserTypeSelectionScreen = () => {
   const navigation = useNavigation<UserTypeScreenProp>();
 
-const handleNavigateToEnterEnterpriseCodeScreen = () => {
-    navigation.navigate('EnterEnterpriseCodeScreen');
+const handleNavigateToEntrepriseCodeScreen = () => {
+    navigation.navigate('EntrepriseCodeScreen');
   };
 
   return (
@@ -44,8 +44,8 @@ const handleNavigateToEnterEnterpriseCodeScreen = () => {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.optionButton, styles.enterpriseButton]}
-          onPress={() => navigation.navigate('EnterEnterpriseCodeScreen')}
+          style={[styles.optionButton, styles.entrepriseButton]}
+          onPress={() => navigation.navigate('EntrepriseCodeScreen')}
         >
           <Ionicons name="business" size={24} color="#fff" style={styles.icon} />
           <Text style={styles.optionText}>Je rejoins une entreprise</Text>
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     width: '100%',
   },
-  enterpriseButton: {
+  entrepriseButton: {
     backgroundColor: '#004D40',
   },
   optionText: {
