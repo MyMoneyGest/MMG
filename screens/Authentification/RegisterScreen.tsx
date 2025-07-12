@@ -1,4 +1,3 @@
-//RegisterScreen
 import React, { useState } from 'react';
 import {
   View,
@@ -32,6 +31,7 @@ const RegisterScreen = () => {
 
   // Personnel uniquement
   const [name, setName] = useState('');
+  const [phone, setPhone] = useState(''); // 👈 Nouveau champ
 
   // Champs communs
   const [email, setEmail] = useState('');
@@ -40,12 +40,8 @@ const RegisterScreen = () => {
 
   const validateEmail = (email: string) => {
     const commonDomains = [
-      'gmail.com',
-      'hotmail.com',
-      'outlook.com',
-      'yahoo.com',
-      'icloud.com',
-      'protonmail.com',
+      'gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com',
+      'icloud.com', 'protonmail.com',
     ];
     const genericTLD = /\.(com|fr|org|net|ga|io)$/i;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -56,7 +52,7 @@ const RegisterScreen = () => {
   };
 
   const handleRegister = async () => {
-    if (!name || !email || !password || !confirmPassword) {
+    if (!name || !phone || !email || !password || !confirmPassword) {
       Alert.alert('Erreur', 'Tous les champs obligatoires doivent être remplis.');
       return;
     }
@@ -79,9 +75,7 @@ const RegisterScreen = () => {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      await updateProfile(user, {
-        displayName: name,
-      });
+      await updateProfile(user, { displayName: name });
 
       const userData = {
         uid: user.uid,
@@ -89,9 +83,20 @@ const RegisterScreen = () => {
         type: 'personal',
         createdAt: new Date(),
         name,
+        phone,
       };
 
+      // ✅ Écriture dans users
       await setDoc(doc(db, 'users', user.uid), userData);
+
+      // ✅ Écriture dans phoneDirectory
+      await setDoc(doc(db, 'phoneDirectory', user.uid), {
+        uid: user.uid,
+        phone,
+        email,
+        name,
+        createdAt: new Date(),
+      });
 
       Alert.alert('Succès', 'Compte créé avec succès.');
       navigation.navigate('Login');
@@ -140,6 +145,13 @@ const RegisterScreen = () => {
           />
           <TextInput
             style={styles.input}
+            placeholder="Numéro de téléphone"
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
+          />
+          <TextInput
+            style={styles.input}
             placeholder="Email"
             value={email}
             onChangeText={setEmail}
@@ -160,7 +172,6 @@ const RegisterScreen = () => {
             onChangeText={setConfirmPassword}
             secureTextEntry={secure}
           />
-
           <TouchableOpacity onPress={() => setSecure(!secure)} style={{ alignSelf: 'flex-end', marginBottom: 15 }}>
             <Text style={styles.toggle}>{secure ? '👁️‍🗨️' : '🙈'}</Text>
           </TouchableOpacity>

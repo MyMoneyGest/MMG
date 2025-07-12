@@ -15,23 +15,43 @@ const ForgotPasswordScreen = () => {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleReset = async () => {
-    if (!email) {
-      Alert.alert('Erreur', 'Veuillez entrer votre adresse email.');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      await sendPasswordResetEmail(auth, email);
-      Alert.alert('Email envoyé', 'Vérifiez votre boîte mail.');
-    } catch (error: any) {
-      Alert.alert('Erreur', error.message);
-    } finally {
-      setLoading(false);
-    }
+  const isValidEmail = (email: string) => {
+    return String(email)
+      .trim()
+      .toLowerCase()
+      .match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/) !== null;
   };
+
+
+const handleReset = async () => {
+  const trimmedEmail = email.trim();
+
+  if (!trimmedEmail) {
+    Alert.alert('Erreur', 'Veuillez entrer votre adresse email.');
+    return;
+  }
+
+  if (!isValidEmail(trimmedEmail)) {
+  console.log('Rejeté avant Firebase :', trimmedEmail);
+    Alert.alert('Email invalide', 'Veuillez entrer une adresse email valide.');
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    await sendPasswordResetEmail(auth, trimmedEmail);
+    Alert.alert('Email envoyé', 'Vérifiez votre boîte mail.');
+  } catch (error: any) {
+    if (error.code === 'auth/user-not-found') {
+      Alert.alert('Utilisateur introuvable', 'Aucun compte associé à cette adresse.');
+    } else {
+      Alert.alert('Erreur', error.message);
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <View style={styles.container}>

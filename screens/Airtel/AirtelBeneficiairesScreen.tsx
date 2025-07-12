@@ -58,24 +58,15 @@ const handleAddOrUpdate = async () => {
   }
 
   try {
-    let linkedUid: string | null = null;
-
     // Étape 1 : récupérer tous les utilisateurs
-    const usersSnap = await getDocs(collection(db, 'users'));
+    const phoneQuery = query(collection(db, 'phoneDirectory'), where('phone', '==', phone));
+    const snap = await getDocs(phoneQuery);
 
-    for (const userDoc of usersSnap.docs) {
-      const uid = userDoc.id;
-      const airtelRef = doc(db, 'users', uid, 'linkedAccounts', 'airtel');
-      const airtelSnap = await getDoc(airtelRef);
-
-      if (airtelSnap.exists()) {
-        const data = airtelSnap.data();
-        if (data.phoneNumber === phone) {
-          linkedUid = uid;
-          break;
-        }
-      }
+    let linkedUid: string | null = null;
+    if (!snap.empty) {
+      linkedUid = snap.docs[0].data().uid;
     }
+
 
     const payload = {
       name,
@@ -102,7 +93,7 @@ const handleAddOrUpdate = async () => {
     navigation.navigate('AirtelBeneficiairesScreen');
   } catch (e) {
     console.error(e);
-    Alert.alert('Erreur', `Impossible de ${editId ? 'mettre à jour' : 'ajouter'} ce bénéficiaire.`);
+    Alert.alert('Erreur', `Impossible d'${editId ? 'mettre à jour' : 'ajouter'} ce bénéficiaire.`);
   }
 };
 

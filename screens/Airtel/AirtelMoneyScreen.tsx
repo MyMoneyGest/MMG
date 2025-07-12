@@ -150,9 +150,10 @@ const AirtelMoneyScreen = () => {
             {filteredTransactions.map((item) => {
               const isReceived = item.type === 'Virement reçu';
               const amountText = `${isReceived ? '+' : ''}${item.amount} FCFA`;
+              const key = item.reference ?? `${item.type}-${item.amount}-${item.date}`;
 
               return (
-                <View key={item.reference} style={styles.transactionItem}>
+                <View key={key} style={styles.transactionItem}>
                   <Text style={styles.transactionType}>{item.type}</Text>
                   <Text style={[styles.transactionAmount, { color: isReceived ? '#2E7D32' : '#000' }]}>
                     {amountText}

@@ -44,6 +44,12 @@ import SupportScreen from '../Entreprise/SupportScreen';
 import EntrepriseInfoScreen from '../Entreprise/EntrepriseInfoScreen';
 import CollaboratorsScreen from '../Entreprise/CollaboratorsScreen';
 import AjouterCollaborateurScreen from '../Entreprise/AjouterCollaborateurScreen';
+import LinkedAccountSectionScreen from '../Entreprise/LinkedAccountSectionScreen';
+import CompanyAccountScreen from '../Entreprise/CompanyAccountScreen';
+import AirtelMoneyEntrepriseScreen from '../Entreprise/AirtelMoneyEntrepriseScreen';
+import AirtelMoneyEntrepriseDetailsScreen from '../Entreprise/AirtelMoneyEntrepriseDetailsScreen';
+import MoovMoneyEntrepriseScreen from '../Entreprise/MoovMoneyEntrepriseScreen';
+import CompteBancaireEntrepriseScreen from '../Entreprise/CompteBancaireEntrepriseScreen';
 
 export type RootStackParamList = {
   // ...autres écrans
@@ -123,6 +129,12 @@ export type RootStackParamList = {
   SupportScreen : undefined;
   EntrepriseInfoScreen : undefined;
   CollaboratorsScreen : undefined;
+  LinkedAccountSectionScreen : undefined;
+  CompanyAccountScreen: { companyId: string };
+  CompteBancaireEntrepriseScreen: { companyId: string };
+  AirtelMoneyEntrepriseScreen: { companyId: string };
+  AirtelMoneyEntrepriseDetailsScreen: { companyId: string };
+  MoovMoneyEntrepriseScreen: { companyId: string };
 };
 
 export type Transaction = {
@@ -166,7 +178,7 @@ const AppNavigator = ({ initialRoute }: AppNavigatorProps) => {
       <Stack.Screen name="TransactionDetailLibertis" component={TransactionDetailLibertisScreen} />
       <Stack.Screen name="ConfirmSendAirtelScreen" component={ConfirmSendAirtelScreen} />
       <Stack.Screen name="SendAmountAirtelScreen" component={SendAmountAirtelScreen} />
-
+      
       <Stack.Screen name="AirtelBeneficiairesScreen" component={AirtelBeneficiairesScreen} />
       <Stack.Screen name="EnterSendAmountScreen" component={EnterSendAmountScreen} />
       <Stack.Screen name="EditBeneficiaryScreen" component={EditBeneficiaryScreen} />
@@ -190,7 +202,12 @@ const AppNavigator = ({ initialRoute }: AppNavigatorProps) => {
       <Stack.Screen name="SupportScreen" component={SupportScreen} />
       <Stack.Screen name="EntrepriseInfoScreen" component={EntrepriseInfoScreen} />
       <Stack.Screen name="CollaboratorsScreen" component={CollaboratorsScreen} />
-
+      <Stack.Screen name="CompanyAccountScreen" component={CompanyAccountScreen} />
+      <Stack.Screen name="LinkedAccountSectionScreen" component={LinkedAccountSectionScreen} />
+      <Stack.Screen name="CompteBancaireEntrepriseScreen" component={CompteBancaireEntrepriseScreen} />
+      <Stack.Screen name="AirtelMoneyEntrepriseScreen" component={AirtelMoneyEntrepriseScreen} />
+      <Stack.Screen name="AirtelMoneyEntrepriseDetailsScreen" component={AirtelMoneyEntrepriseDetailsScreen} />
+      <Stack.Screen name="MoovMoneyEntrepriseScreen" component={MoovMoneyEntrepriseScreen} />
     </Stack.Navigator>
   );
 };
