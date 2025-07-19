@@ -13,7 +13,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { auth, db } from '../../services/firebaseConfig';
-import { collection, addDoc } from 'firebase/firestore'; // en haut si ce n'est pas encore importé
+import { collection, addDoc, increment, arrayUnion } from 'firebase/firestore'; // en haut si ce n'est pas encore importé
 import {
   doc,
   DocumentData,
@@ -76,6 +76,7 @@ const ConfirmSendScreen = () => {
         const receiverRef = doc(db, 'users', beneficiary.linkedUid, 'linkedAccounts', 'airtel');
 
         await runTransaction(db, async (transaction: {
+          set(receiverRef: DocumentReference<DocumentData, DocumentData>, arg1: any, arg2: { merge: boolean; }): unknown;
           get: (arg0: DocumentReference<DocumentData, DocumentData>) => any;
           update: (arg0: DocumentReference<DocumentData, DocumentData>, arg1: any) => void;
         }) => {
@@ -112,10 +113,12 @@ const ConfirmSendScreen = () => {
             transactions: [...(senderData.transactions || []), senderTx],
           });
 
-          transaction.update(receiverRef, {
-            airtelBalance: receiverBalance + amount,
-            transactions: [...(receiverData.transactions || []), receiverTx],
-          });
+          transaction.set(receiverRef, {
+            airtelBalance: increment(amount),
+            transactions: arrayUnion(receiverTx),
+          }, { merge: true });
+
+
           const notifRef = collection(db, 'users', beneficiary.linkedUid, 'notifications');
           await addDoc(notifRef, {
             title: 'Virement reçu',

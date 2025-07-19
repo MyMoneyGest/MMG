@@ -9,7 +9,7 @@ type DetailRouteProp = RouteProp<RootStackParamList, 'TransactionDetail'>;
 
 const TransactionDetailScreen = () => {
   const route = useRoute<DetailRouteProp>();
-  const navigation = useNavigation();
+  //const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { transaction } = route.params;
 

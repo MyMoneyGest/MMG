@@ -5,6 +5,8 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../services/firebaseConfig';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MoovMoneyEntrepriseScreen'>;
 
@@ -65,7 +67,7 @@ const MoovMoneyEntrepriseScreen: React.FC<Props> = ({ route, navigation }) => {
 
       <TouchableOpacity
         style={styles.historyButton}
-        onPress={() => navigation.navigate('MoovMoneyEntrepriseScreen', { companyId })}
+        onPress={() => navigation.navigate('MoovMoneyEntrepriseDetailsScreen', { companyId })}
       >
         <Text style={styles.historyButtonText}>Voir tout l’historique</Text>
       </TouchableOpacity>

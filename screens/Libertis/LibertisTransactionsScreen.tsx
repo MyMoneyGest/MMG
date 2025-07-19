@@ -13,13 +13,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 
-type LibertisTransactionsScreenProp = NativeStackNavigationProp<RootStackParamList,'LibertisTransactions'>;
+type LibertisTransactionsScreenProp = NativeStackNavigationProp<
+  RootStackParamList,
+  'LibertisTransactions'
+>;
 
 const sampleTransactions = [
   {
     id: '1',
     type: 'Envoi',
-    amount: '-5 000 FCFA',
+    amount: -5000,
     date: '2025-06-01',
     reference: 'TX123456',
     status: 'Réussie',
@@ -29,19 +32,17 @@ const sampleTransactions = [
   {
     id: '2',
     type: 'Réception',
-    amount: '+10 000 FCFA',
+    amount: 10000,
     date: '2025-05-30',
     reference: 'TX123457',
     status: 'Réussie',
     sender: 'Brenda',
     receiver: 'Mitachi',
   },
-  { id: '1', type: 'Envoi', amount: '-5 000 FCFA', date: '2025-06-01', reference: 'TXN001', status: 'Réussi' },
-  { id: '2', type: 'Réception', amount: '+10 000 FCFA', date: '2025-05-30', reference: 'TXN002', status: 'Réussi' },
-  { id: '3', type: 'Retrait', amount: '-3 000 FCFA', date: '2025-05-29', reference: 'TXN003', status: 'Échoué' },
-  { id: '4', type: 'Paiement', amount: '-2 000 FCFA', date: '2025-05-28', reference: 'TXN004', status: 'En attente' },
-  { id: '5', type: 'Envoi', amount: '-6 000 FCFA', date: '2025-06-02', reference: 'TXN005', status: 'Réussi' },
-  { id: '6', type: 'Réception', amount: '+4 000 FCFA', date: '2025-05-27', reference: 'TXN006', status: 'Réussi' },
+  { id: '3', type: 'Retrait', amount: -3000, date: '2025-05-29', reference: 'TXN003', status: 'Échoué' },
+  { id: '4', type: 'Paiement', amount: -2000, date: '2025-05-28', reference: 'TXN004', status: 'En attente' },
+  { id: '5', type: 'Envoi', amount: -6000, date: '2025-06-02', reference: 'TXN005', status: 'Réussi' },
+  { id: '6', type: 'Réception', amount: 4000, date: '2025-05-27', reference: 'TXN006', status: 'Réussi' },
 ];
 
 const LibertisTransactions = () => {
@@ -53,7 +54,7 @@ const LibertisTransactions = () => {
     const query = searchQuery.toLowerCase();
     return (
       item.type.toLowerCase().includes(query) ||
-      item.amount.toLowerCase().includes(query) ||
+      item.amount.toString().includes(query) ||
       item.date.includes(query) ||
       item.reference.toLowerCase().includes(query) ||
       item.status.toLowerCase().includes(query)
@@ -61,26 +62,37 @@ const LibertisTransactions = () => {
   });
 
   const renderItem = ({ item }: { item: typeof sampleTransactions[0] }) => {
-  const completeTransaction = {
-    ...item,
-    reference: item.reference ?? 'Réf-0000',
-    status: item.status ?? 'Succès',
-    sender: item.sender ?? 'Vous',
-    receiver: item.receiver ?? 'Destinataire inconnu',
+    const completeTransaction = {
+      ...item,
+      reference: item.reference ?? 'Réf-0000',
+      status: item.status ?? 'Succès',
+      sender: item.sender ?? 'Vous',
+      receiver: item.receiver ?? 'Destinataire inconnu',
+    };
+
+    return (
+      <TouchableOpacity
+        style={styles.transactionItem}
+        onPress={() =>
+          navigation.navigate('TransactionDetailLibertis', {
+            transaction: completeTransaction,
+          })
+        }
+      >
+        <Text style={styles.transactionType}>{item.type}</Text>
+        <Text
+          style={[
+            styles.transactionAmount,
+            { color: item.amount > 0 ? '#2E7D32' : '#B71C1C' },
+          ]}
+        >
+          {item.amount > 0 ? '+' : ''}
+          {item.amount.toLocaleString()} FCFA
+        </Text>
+        <Text style={styles.transactionDate}>{item.date}</Text>
+      </TouchableOpacity>
+    );
   };
-
-  return (
-    <TouchableOpacity
-      style={styles.transactionItem}
-      onPress={() => navigation.navigate('TransactionDetailLibertis', { transaction: completeTransaction })}
-    >
-      <Text style={styles.transactionType}>{item.type}</Text>
-      <Text style={styles.transactionAmount}>{item.amount}</Text>
-      <Text style={styles.transactionDate}>{item.date}</Text>
-    </TouchableOpacity>
-  );
-};
-
 
   return (
     <SafeAreaView style={styles.container}>
@@ -100,31 +112,10 @@ const LibertisTransactions = () => {
       <FlatList
         data={filteredTransactions}
         keyExtractor={(item, index) => `${item.id}-${index}`}
-        renderItem={({ item }) => (
-      <TouchableOpacity
-        onPress={() =>
-          navigation.navigate('TransactionDetailLibertis', {
-            transaction: {
-              ...item,
-              sender: item.sender ?? 'Inconnu',
-              receiver: item.receiver ?? 'Inconnu',
-              reference: item.reference ?? 'Aucune référence',
-              status: item.status ?? 'Inconnu',
-            },
-          })
-        }
-
-      >
-      <View style={styles.transactionItem}>
-        <Text style={styles.transactionType}>{item.type}</Text>
-        <Text style={styles.transactionAmount}>{item.amount}</Text>
-        <Text style={styles.transactionDate}>{item.date}</Text>
-      </View>
-    </TouchableOpacity>
-  )}
-  contentContainerStyle={styles.listContent}
-  showsVerticalScrollIndicator={false}
-/>
+        renderItem={renderItem}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+      />
     </SafeAreaView>
   );
 };
@@ -188,20 +179,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#555',
     marginTop: 2,
-  },
-  returnButtonWrapper: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    backgroundColor: 'transparent',
-  },
-  returnButton: {
-    backgroundColor: '#B71C1C',
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
   },
 });

@@ -1,4 +1,3 @@
-// En haut du fichier
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -13,22 +12,34 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { auth, db } from '../services/firebaseConfig';
 import { doc, getDoc, collection, onSnapshot } from 'firebase/firestore';
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'GestionEntrepriseScreen'>;
+type Props = NativeStackScreenProps<RootStackParamList, 'GestionEntrepriseScreen'>;
 
-const GestionEntrepriseScreen = () => {
-  const navigation = useNavigation<NavigationProp>();
+// Typage des écrans ne prenant pas de paramètres
+type ScreensWithoutParams = {
+  [K in keyof RootStackParamList]: RootStackParamList[K] extends undefined ? K : never;
+}[keyof RootStackParamList];
 
+const GestionEntrepriseScreen = ({ navigation }: Props) => {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [entrepriseName, setEntrepriseName] = useState('Entreprise');
   const [notificationCount, setNotificationCount] = useState(0);
   const [companyId, setCompanyId] = useState<string | null>(null);
+
+  const quickActions = [
+  { icon: 'cash-outline', label: 'Suivi des revenus', screen: 'EntrepriseRevenusScreen' },
+  { icon: 'card-outline', label: 'Dépenses', screen: 'DepenseProfessionnellesScreen' },
+  { icon: 'document-text-outline', label: 'Facturation', screen: 'FacturesScreen' },
+  { icon: 'people-outline', label: 'Clients', screen: 'ClientsScreen' },
+  { icon: 'bar-chart-outline', label: 'Rapports', screen: 'EntrepriseRapportsScreen' },
+  { icon: 'folder-open-outline', label: 'Documents partagés', screen: 'DocumentsScreen' },
+  { icon: 'clipboard-outline', label: 'Projets & tâches', screen: 'ProjectsScreen' },
+] as const;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -59,8 +70,7 @@ const GestionEntrepriseScreen = () => {
 
         setIsAdmin(entreprise.createdBy === user.uid);
         setEntrepriseName(entreprise.nom || 'Entreprise');
-        setCompanyId(userData.entrepriseId);  // ← ici on sauvegarde l’ID
-
+        setCompanyId(userData.entrepriseId);
       } catch (error) {
         console.error(error);
         Alert.alert('Erreur', 'Impossible de charger les données.');
@@ -85,6 +95,8 @@ const GestionEntrepriseScreen = () => {
 
   useEffect(() => {
     const backAction = () => {
+      if (navigation.canGoBack()) return false;
+
       Alert.alert('Quitter', 'Retourner à l’accueil ?', [
         { text: 'Non', style: 'cancel' },
         { text: 'Oui', onPress: () => navigation.replace('HomeScreen') },
@@ -94,7 +106,7 @@ const GestionEntrepriseScreen = () => {
 
     const sub = BackHandler.addEventListener('hardwareBackPress', backAction);
     return () => sub.remove();
-  }, []);
+  }, [navigation]);
 
   if (loading) {
     return (
@@ -115,23 +127,17 @@ const GestionEntrepriseScreen = () => {
         <ScrollView contentContainerStyle={styles.scrollContainer}>
           <Text style={styles.sectionTitle}>🎯 Actions rapides</Text>
 
-          {/* Boutons classiques */}
-          {[
-            { icon: 'cash-outline', label: 'Suivi des revenus', screen: 'EntrepriseRevenusScreen' },
-            { icon: 'card-outline', label: 'Dépenses', screen: 'DepenseProfessionnellesScreen' },
-            { icon: 'document-text-outline', label: 'Facturation', screen: 'FacturesScreen' },
-            { icon: 'people-outline', label: 'Clients', screen: 'ClientsScreen' },
-            { icon: 'bar-chart-outline', label: 'Rapports', screen: 'EntrepriseRapportsScreen' },
-            { icon: 'folder-open-outline', label: 'Documents partagés', screen: 'DocumentsScreen' },
-            { icon: 'clipboard-outline', label: 'Projets & tâches', screen: 'ProjectsScreen' },
-          ].map(({ icon, label, screen }) => (
-            <TouchableOpacity key={screen} style={styles.card} onPress={() => navigation.navigate(screen)}>
+          {quickActions.map(({ icon, label, screen }) => (
+            <TouchableOpacity
+              key={screen}
+              style={styles.card}
+              onPress={() => navigation.navigate(screen)}
+            >
               <Ionicons name={icon as any} size={22} color="#004D40" />
               <Text style={styles.cardText}>{label}</Text>
             </TouchableOpacity>
-          ))}
-
-          {/* Bouton Comptes, uniquement si companyId défini */}
+          ))
+          }
           {companyId && (
             <TouchableOpacity
               style={styles.card}
@@ -141,8 +147,7 @@ const GestionEntrepriseScreen = () => {
               <Text style={styles.cardText}>Comptes</Text>
             </TouchableOpacity>
           )}
-
-          {/* Section Admin */}
+          
           {isAdmin && (
             <>
               <Text style={styles.sectionTitle}>🔧 Administration</Text>

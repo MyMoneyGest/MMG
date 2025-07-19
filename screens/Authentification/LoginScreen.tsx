@@ -21,6 +21,7 @@ import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/aut
 import { auth, db } from '../../services/firebaseConfig';
 import { getDoc, doc } from 'firebase/firestore';
 import { LinearGradient } from 'expo-linear-gradient';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 type LoginScreenProp = NativeStackNavigationProp<RootStackParamList, 'Login'>;
 
@@ -126,12 +127,12 @@ const LoginScreen = () => {
                 accessible
                 accessibilityLabel="Mot de passe"
               />
-              <TouchableOpacity
-                onPress={() => setSecure(!secure)}
-                accessibilityRole="button"
-                accessibilityLabel={secure ? 'Afficher mot de passe' : 'Masquer mot de passe'}
-              >
-                <Text style={styles.toggle}>{secure ? '👁️‍🗨️' : '🙈'}</Text>
+              <TouchableOpacity onPress={() => setSecure(!secure)}>
+                <Icon
+                  name={secure ? 'eye-outline' : 'eye-off-outline'}
+                  size={24}
+                  color="#00796B"
+                />
               </TouchableOpacity>
             </View>
           </View>
@@ -154,6 +155,11 @@ const LoginScreen = () => {
               <Text style={styles.signupLink}>Créer un compte</Text>
             </TouchableOpacity>
           </View>
+          <View style={styles.legalContainer}>
+            <TouchableOpacity onPress={() => navigation.navigate('MentionsLegales')} accessibilityRole="link">
+              <Text style={styles.legalText}>Mentions légales</Text>
+            </TouchableOpacity>
+          </View>
         </KeyboardAvoidingView>
       </TouchableWithoutFeedback>
     </LinearGradient>
@@ -165,6 +171,7 @@ export default LoginScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#ffffff',
   },
   innerContainer: {
     flex: 1,
@@ -172,29 +179,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logo: {
-    width: 130,
-    height: 130,
+    width: 140,
+    height: 140,
     resizeMode: 'contain',
     alignSelf: 'center',
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 5,
-    elevation: 6,
+    marginBottom: 20,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 30,
+    fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 25,
+    
     color: '#004D40',
-    textShadowColor: '#B2DFDB',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
+    marginBottom: 32,
   },
   inputGroup: {
-    marginBottom: 15,
+    marginBottom: 20,
   },
   label: {
     fontSize: 16,
@@ -203,22 +203,22 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   input: {
-    backgroundColor: '#E0F2F1',
-    borderRadius: 10,
+    backgroundColor: '#F1F8F6',
+    borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 18,
     fontSize: 16,
     color: '#004D40',
-    borderWidth: 1,
-    borderColor: '#004D40',
+    borderWidth: 1.5,
+    borderColor: '#B2DFDB',
   },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E0F2F1',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#004D40',
+    backgroundColor: '#F1F8F6',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#B2DFDB',
     paddingHorizontal: 18,
   },
   passwordInput: {
@@ -228,36 +228,38 @@ const styles = StyleSheet.create({
     color: '#004D40',
   },
   toggle: {
-    fontSize: 20,
-    marginLeft: 12,
+    fontSize: 22,
+    color: '#00796B',
+    paddingHorizontal: 8,
   },
   forgot: {
     textAlign: 'right',
     color: '#00796B',
     fontWeight: '700',
-    marginBottom: 20,
+    marginTop: 8,
+    marginBottom: 24,
     textDecorationLine: 'underline',
   },
   button: {
-    backgroundColor: '#004D40',
+    backgroundColor: '#26A69A',
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 14,
     alignItems: 'center',
-    shadowColor: '#004D40',
-    shadowOpacity: 0.6,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 8,
-    elevation: 8,
+    shadowColor: '#00796B',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 6,
+    elevation: 6,
   },
   buttonText: {
-    color: '#E0F2F1',
+    color: '#ffffff',
     fontWeight: '700',
     fontSize: 18,
   },
   signupContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 28,
+    marginTop: 32,
   },
   signupText: {
     color: '#004D40',
@@ -268,5 +270,23 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 16,
     textDecorationLine: 'underline',
+  },
+  errorText: {
+    color: '#D32F2F',
+    fontSize: 14,
+    marginTop: 6,
+    marginLeft: 2,
+    fontWeight: '500',
+  },
+
+  legalContainer: {
+  alignItems: 'center',
+  marginTop: 24,
+  },
+  legalText: {
+    fontSize: 14,
+    color: '#004D40',
+    textDecorationLine: 'underline',
+    fontWeight: '600',
   },
 });

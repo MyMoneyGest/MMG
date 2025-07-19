@@ -57,7 +57,7 @@ const AccountsScreen = () => {
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.button} onPress={handleAirtelAccess}>
-          <Text style={styles.buttonText}>🧧 Airtel Money</Text>
+          <Text style={styles.buttonText}>Airtel Money</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
