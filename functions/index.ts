@@ -1,71 +1,65 @@
-import * as functions from 'firebase-functions';
+import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import * as admin from 'firebase-admin';
-import sgMail from '@sendgrid/mail';
 
 admin.initializeApp();
+const db = admin.firestore();
 
-const SENDGRID_API_KEY = functions.config().sendgrid.key;
-sgMail.setApiKey(SENDGRID_API_KEY);
+export const processTransaction = onDocumentCreated('transactions/{transactionId}', async (event) => {
+  const snap = event.data;
+  if (!snap) return;
 
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const data = snap.data() as {
+    senderUid: string;
+    receiverUid: string;
+    amount: number;
+  };
 
-interface SendConfirmationCodeData {
-  email: string;
-}
+  if (!data?.senderUid || !data?.receiverUid || !data?.amount) {
+    console.error('Transaction invalide : données manquantes', data);
+    return;
+  }
 
-export const sendConfirmationCode = functions.https.onCall(
-  async (request: functions.https.CallableRequest) => {
-    const data = request.data as SendConfirmationCodeData;
+  const { senderUid, receiverUid, amount } = data;
+  const transactionRef = snap.ref;
 
-    if (!data || typeof data.email !== 'string') {
-      throw new functions.https.HttpsError(
-        'invalid-argument',
-        'Email est requis et doit être une chaîne de caractères'
-      );
+  const senderRef = db.doc(`users/${senderUid}/linkedAccounts/airtel`);
+  const receiverRef = db.doc(`users/${receiverUid}/linkedAccounts/airtel`);
+
+  await db.runTransaction(async (t) => {
+    const senderSnap = await t.get(senderRef);
+    const receiverSnap = await t.get(receiverRef);
+
+    const senderBalance = senderSnap.data()?.airtelBalance || 0;
+    const receiverBalance = receiverSnap.data()?.airtelBalance || 0;
+
+    if (senderBalance < amount) {
+      await t.update(transactionRef, {
+        status: 'failed',
+        error: 'Solde insuffisant',
+      });
+      return;
     }
 
-    const email = data.email.trim().toLowerCase();
-
-    if (!emailRegex.test(email)) {
-      throw new functions.https.HttpsError('invalid-argument', 'Format email invalide');
-    }
-
-    const codesRef = admin.firestore().collection('SendconfirmationCodes').doc(email);
-    const doc = await codesRef.get();
-
-    if (doc.exists) {
-      const existingData = doc.data();
-      const createdAt = existingData?.createdAt?.toDate?.();
-      if (createdAt && Date.now() - createdAt.getTime() < 5 * 60 * 1000) {
-        throw new functions.https.HttpsError(
-          'resource-exhausted',
-          'Un code a déjà été envoyé récemment. Veuillez patienter.'
-        );
-      }
-    }
-
-    const confirmationCode = Math.floor(100000 + Math.random() * 900000).toString();
-
-    await codesRef.set({
-      code: confirmationCode,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    t.update(senderRef, {
+      airtelBalance: senderBalance - amount,
+      transactions: admin.firestore.FieldValue.arrayUnion({
+        type: 'virement_émis',
+        to: receiverUid,
+        amount,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      }),
     });
 
-    const msg = {
-      to: email,
-      from: 'mymoneygest@gmail.com',
-      subject: 'Votre code de confirmation pour MyMoneyGest',
-      text: `Voici votre code de confirmation : ${confirmationCode}`,
-      html: `<p>Voici votre code de confirmation : <strong>${confirmationCode}</strong></p>`,
-    };
+    t.update(receiverRef, {
+      airtelBalance: receiverBalance + amount,
+      transactions: admin.firestore.FieldValue.arrayUnion({
+        type: 'virement_reçu',
+        from: senderUid,
+        amount,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      }),
+    });
 
-    try {
-      await sgMail.send(msg);
-      console.log(`Code envoyé à ${email} à ${new Date().toISOString()}`);
-      return { success: true, message: 'Code envoyé avec succès' };
-    } catch (error) {
-      console.error('Erreur envoi email', error);
-      throw new functions.https.HttpsError('internal', 'Erreur lors de l\'envoi de l\'email');
-    }
-  }
-);
+    t.update(transactionRef, { status: 'success' });
+  });
+});
