@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -11,12 +11,16 @@ import {
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
-import { doc, updateDoc, deleteDoc, runTransaction, onSnapshot } from 'firebase/firestore';
+import {
+  addDoc,
+  collection,
+  doc,
+  onSnapshot,
+  serverTimestamp,
+} from 'firebase/firestore';
 import { db } from '../../services/firebaseConfig';
 import { getAuth, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { format } from 'date-fns';
-
-// Types
 
 type Vault = {
   id: string;
@@ -25,7 +29,7 @@ type Vault = {
   goal?: number;
   createdAt: Date;
   type: 'standard' | 'locked';
-  lockedUntil?: string | null;
+  lockedUntil?: string | null; // ISO string
   uid: string;
 };
 
@@ -40,229 +44,191 @@ const VaultDetailsScreen = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [actionType, setActionType] = useState<'add' | 'withdraw' | 'delete' | null>(null);
   const [amount, setAmount] = useState('');
-  const isAmountValid = !!amount && !isNaN(Number(amount)) && Number(amount) > 0;
   const [password, setPassword] = useState('');
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [airtelBalance, setAirtelBalance] = useState<number | null>(null);
   const [passwordError, setPasswordError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const isAmountValid = useMemo(() => {
+    const n = Number(amount);
+    return Number.isFinite(n) && n > 0;
+  }, [amount]);
 
   const isLocked = vault.type === 'locked';
 
   const getUnlockDate = () => {
     if (!vault.lockedUntil) return null;
-    const parsedDate = new Date(vault.lockedUntil);
-    return isNaN(parsedDate.getTime()) ? null : parsedDate;
+    const d = new Date(vault.lockedUntil);
+    return isNaN(d.getTime()) ? null : d;
   };
-
-  const unlockDateFormatted = getUnlockDate()
-    ? format(getUnlockDate()!, 'dd/MM/yyyy')
-    : null;
-
-  const canWithdraw = !isLocked || (getUnlockDate() && new Date() >= getUnlockDate()!);
+  const unlockDate = getUnlockDate();
+  const unlockDateFormatted = unlockDate ? format(unlockDate, 'dd/MM/yyyy') : null;
+  const canWithdraw = !isLocked || (unlockDate && new Date() >= unlockDate);
 
   const requestAction = (type: 'add' | 'withdraw' | 'delete') => {
     setActionType(type);
     setPassword('');
+    setPasswordError('');
     setModalVisible(true);
   };
 
+  // Suivi du solde Airtel
   useEffect(() => {
     if (!user) return;
-
     const airtelRef = doc(db, 'users', user.uid, 'linkedAccounts', 'airtel');
-
     const unsubscribe = onSnapshot(airtelRef, (snapshot) => {
       if (snapshot.exists()) {
-        const data = snapshot.data();
-        setAirtelBalance(data.airtelBalance || 0);
+        const data = snapshot.data() as any;
+        setAirtelBalance(Number(data.airtelBalance ?? 0));
       }
     });
-
     return () => unsubscribe();
   }, [user]);
 
-  const generateTransactionReference = async (): Promise<string> => {
-    const counterRef = doc(db, 'globalCounters', 'transactions');
-
-    const newRef = await runTransaction(db, async (transaction) => {
-      const counterDoc = await transaction.get(counterRef);
-
-      if (!counterDoc.exists()) {
-        throw new Error("Le compteur global n'existe pas.");
-      }
-
-      const currentCount = counterDoc.data().transactionCounter || 0;
-      const nextCount = currentCount + 1;
-
-      transaction.update(counterRef, { transactionCounter: nextCount });
-
-      const padded = String(nextCount).padStart(8, '0');
-      return `TX-${padded}`;
+  /** Crée un vaultCommand et attend sa résolution (success/failed) */
+  const sendVaultCommand = async (type: 'deposit' | 'withdrawal', vaultId: string, rawAmount: number, note?: string) => {
+    if (!user) throw new Error('Utilisateur non connecté');
+    const uid = user.uid;
+    const ref = await addDoc(collection(db, 'users', uid, 'vaultCommands'), {
+      type,
+      vaultId,
+      amount: Math.trunc(rawAmount),
+      note: note ?? '',
+      status: 'pending',
+      createdAt: serverTimestamp(),
     });
 
-    return newRef;
+    return new Promise<{ reference?: string }>((resolve, reject) => {
+      const unsub = onSnapshot(ref, (s) => {
+        const d = s.data() as any;
+        if (!d) return;
+        if (d.status === 'success') {
+          unsub();
+          resolve({ reference: d.reference });
+        } else if (d.status === 'failed') {
+          unsub();
+          reject(new Error(d.error || 'Échec de l’opération'));
+        }
+      });
+      // filet de sécurité
+      setTimeout(() => {
+        unsub();
+        reject(new Error('Timeout'));
+      }, 30000);
+    });
   };
 
   const handleConfirmedAction = async () => {
-  if (!user || !user.email) return;
+    const auth = getAuth();
+    const currentUser = auth.currentUser;
+    if (!currentUser || !currentUser.email) return;
 
-  if (!password.trim()) {
-    Alert.alert('Erreur', 'Veuillez entrer votre mot de passe.');
-    return;
-  }
-
-  const credential = EmailAuthProvider.credential(user.email, password);
-  const vaultRef = doc(db, 'users', user.uid, 'vaults', vault.id);
-  const airtelRef = doc(db, 'users', user.uid, 'linkedAccounts', 'airtel');
-
-  try {
-    await reauthenticateWithCredential(user, credential);
-
-    const value = parseInt(amount);
-    if ((actionType === 'add' || actionType === 'withdraw') && (!value || isNaN(value) || value <= 0)) {
-      Alert.alert('Erreur', 'Veuillez saisir un montant valide.');
-      setPasswordError('');
+    if (!password.trim()) {
+      setPasswordError('Veuillez entrer votre mot de passe.');
       return;
     }
 
-    await runTransaction(db, async (transaction) => {
-      const vaultSnap = await transaction.get(vaultRef);
-      const airtelSnap = await transaction.get(airtelRef);
+    try {
+      // Re‑auth
+      setIsLoading(true);
+      const credential = EmailAuthProvider.credential(currentUser.email, password);
+      await reauthenticateWithCredential(currentUser, credential);
+      setFailedAttempts(0);
 
-      if (!vaultSnap.exists() || !airtelSnap.exists()) throw new Error("Données introuvables");
-
-      const currentVault = vaultSnap.data();
-      const currentBalance = currentVault.balance;
-      const currentairtelBalance = airtelSnap.data().airtelBalance || 0;
-
-      if (actionType === 'add') {
-        if (value > currentairtelBalance) throw new Error('SOLDE_INSUFFISANT');
-
-        transaction.update(vaultRef, { balance: currentBalance + value });
-        transaction.update(airtelRef, { airtelBalance: currentairtelBalance - value });
-
-        const reference = await generateTransactionReference();
-        const newTx = {
-          reference,
-          type: 'Virement vers coffre',
-          amount: -value,
-          date: new Date().toISOString(),
-          sender: 'Vous',
-          receiver: `Coffre ${vault.name}`,
-          status: 'Réussi',
-          vaultId: vault.id,
-          vaultName: vault.name,
-        };
-        const transactions = [...airtelSnap.data().transactions || [], newTx];
-        transaction.update(airtelRef, { transactions });
-
-      } else if (actionType === 'withdraw') {
-        if (value > currentBalance) throw new Error('COFFRE_INSUFFISANT');
-
-        const now = new Date();
-        const unlockDate = getUnlockDate();
-        if (isLocked && unlockDate && now < unlockDate) {
-          throw new Error(`BLOQUÉ_JUSQUAU_${format(unlockDate, 'dd/MM/yyyy')}`);
-        }
-
-        transaction.update(vaultRef, { balance: currentBalance - value });
-        transaction.update(airtelRef, { airtelBalance: currentairtelBalance + value });
-
-        const reference = await generateTransactionReference();
-        const newTx = {
-          reference,
-          type: 'Retrait depuis coffre',
-          amount: value,
-          date: new Date().toISOString(),
-          sender: `Coffre ${vault.name}`,
-          receiver: 'Vous',
-          status: 'Réussi',
-          vaultId: vault.id,
-          vaultName: vault.name,
-        };
-        const transactions = [...airtelSnap.data().transactions || [], newTx];
-        transaction.update(airtelRef, { transactions });
-
-      } else if (actionType === 'delete') {
-        transaction.delete(vaultRef);
-        transaction.update(airtelRef, { airtelBalance: currentairtelBalance + currentBalance });
+      const value = Math.trunc(Number(amount));
+      if ((actionType === 'add' || actionType === 'withdraw') && (!value || value <= 0)) {
+        setPasswordError('');
+        Alert.alert('Erreur', 'Veuillez saisir un montant valide.');
+        setIsLoading(false);
+        return;
       }
-    });
 
-    const successMessage =
-      actionType === 'delete'
-        ? `Coffre supprimé. Le montant a été transféré vers votre solde principal.`
-        : actionType === 'add'
-        ? 'Argent ajouté au coffre.'
-        : 'Argent retiré du coffre.';
+      if (actionType === 'withdraw') {
+        // Vérrouillage côté client (garde-fou UX ; le serveur protège aussi)
+        if (!canWithdraw) {
+          Alert.alert('Coffre bloqué', `Retrait possible à partir du ${unlockDateFormatted}.`);
+          setIsLoading(false);
+          return;
+        }
+      }
 
-    Alert.alert('Succès', successMessage);
-    setModalVisible(false);
-    setFailedAttempts(0);
-    navigation.goBack();
+      if (actionType === 'delete') {
+        // Tes règles interdisent delete côté client.
+        setIsLoading(false);
+        setModalVisible(false);
+        Alert.alert(
+          'Non disponible',
+          "La suppression de coffre n'est pas encore supportée côté client. On peut l'ajouter via un vaultDeleteCommand + Function si tu veux."
+        );
+        return;
+      }
 
-  } catch (error: any) {
-    if (__DEV__) {
-      console.error('Erreur lors de la transaction :', error);
-    }
+      // Envoi de la commande au serveur
+      if (actionType === 'add') {
+        const res = await sendVaultCommand('deposit', vault.id, value, `Versement vers ${vault.name}`);
+        setModalVisible(false);
+        Alert.alert('Succès', `Argent ajouté au coffre.\nRéférence : ${res.reference ?? '—'}`);
+        navigation.goBack();
+      } else if (actionType === 'withdraw') {
+        const res = await sendVaultCommand('withdrawal', vault.id, value, `Retrait depuis ${vault.name}`);
+        setModalVisible(false);
+        Alert.alert('Succès', `Argent retiré du coffre.\nRéférence : ${res.reference ?? '—'}`);
+        navigation.goBack();
+      }
 
-    const isWrongPassword =
-      error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password';
+    } catch (error: any) {
+      // Gestion des erreurs
+      if (__DEV__) console.error('Erreur vault command :', error);
 
-    const nextAttempts = failedAttempts + 1;
-    setFailedAttempts(nextAttempts);
+      const isWrongPassword =
+        error?.code === 'auth/invalid-credential' || error?.code === 'auth/wrong-password';
 
-    if (nextAttempts >= 5) {
-      Alert.alert(
-        'Trop de tentatives',
-        'Vous allez être redirigé vers la réinitialisation du mot de passe.',
-        [{ text: 'OK', onPress: () => navigation.navigate('ForgotPassword') }]
-      );
+      if (isWrongPassword) {
+        const next = failedAttempts + 1;
+        setFailedAttempts(next);
+        setPasswordError(`Mot de passe incorrect (tentative ${next} sur 5)`);
+        if (next >= 5) {
+          Alert.alert(
+            'Trop de tentatives',
+            'Vous allez être redirigé vers la réinitialisation du mot de passe.',
+            [{ text: 'OK', onPress: () => navigation.navigate('ForgotPassword') }]
+          );
+        }
+        setIsLoading(false);
+        return;
+      }
+
+      // Messages métier (renvoyés par la Function)
+      const msg = String(error?.message || '');
+      if (msg.includes('Solde Airtel insuffisant')) {
+        Alert.alert('Erreur', 'Votre solde principal est insuffisant pour cette opération.');
+      } else if (msg.includes('Solde du coffre insuffisant')) {
+        Alert.alert('Erreur', 'Le montant dépasse le solde disponible dans ce coffre.');
+      } else if (msg.startsWith('BLOQUÉ_JUSQUAU_')) {
+        const date = msg.replace('BLOQUÉ_JUSQUAU_', '');
+        Alert.alert('Coffre bloqué', `Retrait possible à partir du ${date}.`);
+      } else {
+        Alert.alert('Erreur', 'Une erreur inattendue est survenue. Veuillez réessayer.');
+      }
+
+    } finally {
       setIsLoading(false);
-      return;
     }
-
-    if (isWrongPassword) {
-      setFailedAttempts(nextAttempts);
-      setPasswordError(`Mot de passe incorrect (tentative ${nextAttempts} sur 5)`);
-      return;
-    }
-
-    if (error.message === 'SOLDE_INSUFFISANT') {
-      Alert.alert('Erreur', 'Votre solde principal est insuffisant pour cette opération.');
-      return;
-    }
-
-    if (error.message === 'COFFRE_INSUFFISANT') {
-      Alert.alert('Erreur', 'Le montant dépasse le solde disponible dans ce coffre.');
-      return;
-    }
-
-    if (error.message?.startsWith('BLOQUÉ_JUSQUAU_')) {
-      const date = error.message.replace('BLOQUÉ_JUSQUAU_', '');
-      Alert.alert('Coffre bloqué', `Retrait possible à partir du ${date}.`);
-      return;
-    }
-
-    Alert.alert('Erreur', 'Une erreur inattendue est survenue. Veuillez réessayer.');
-  }
-};
+  };
 
   return (
-    
     <View style={styles.container}>
-          <View style={styles.headerRow}>
-      <Text style={styles.title}>{vault.name}</Text>
-      {airtelBalance !== null && (
-        <Text style={styles.balanceSmall}>
-          💰 {airtelBalance.toLocaleString()} FCFA
-        </Text>
-      )}
-    </View>
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>{vault.name}</Text>
+        {airtelBalance !== null && (
+          <Text style={styles.balanceSmall}>💰 {airtelBalance.toLocaleString()} FCFA</Text>
+        )}
+      </View>
 
       <Text style={styles.balance}>Solde : {vault.balance.toLocaleString()} FCFA</Text>
-      {vault.goal && <Text>🎯 Objectif : {vault.goal.toLocaleString()} FCFA</Text>}
-      {unlockDateFormatted && <Text>🔒 Débloqué le : {unlockDateFormatted}</Text>}
+      {vault.goal ? <Text>🎯 Objectif : {vault.goal.toLocaleString()} FCFA</Text> : null}
+      {unlockDateFormatted ? <Text>🔒 Débloqué le : {unlockDateFormatted}</Text> : null}
 
       <TextInput
         placeholder="Montant"
@@ -273,20 +239,20 @@ const VaultDetailsScreen = () => {
       />
 
       <TouchableOpacity
-        style={[styles.button, !isAmountValid && styles.disabledButton]}
+        style={[styles.button, !isAmountValid || isLoading ? styles.disabledButton : null]}
         onPress={() => requestAction('add')}
-        disabled={!isAmountValid}
+        disabled={!isAmountValid || isLoading}
       >
-        <Text style={styles.buttonText}>Ajouter</Text>
+        <Text style={styles.buttonText}>{isLoading && actionType === 'add' ? 'Envoi...' : 'Ajouter'}</Text>
       </TouchableOpacity>
 
       {canWithdraw && (
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: '#B71C1C' }, !isAmountValid && styles.disabledButton]}
+          style={[styles.button, { backgroundColor: '#B71C1C' }, !isAmountValid || isLoading ? styles.disabledButton : null]}
           onPress={() => requestAction('withdraw')}
-          disabled={!isAmountValid}
+          disabled={!isAmountValid || isLoading}
         >
-          <Text style={styles.buttonText}>Retirer</Text>
+          <Text style={styles.buttonText}>{isLoading && actionType === 'withdraw' ? 'Envoi...' : 'Retirer'}</Text>
         </TouchableOpacity>
       )}
 
@@ -304,7 +270,7 @@ const VaultDetailsScreen = () => {
             <Text style={styles.modalTitle}>Confirmez avec votre mot de passe</Text>
             <TextInput
               placeholder="Votre mot de passe"
-              secureTextEntry                  
+              secureTextEntry
               value={password}
               onChangeText={(text) => {
                 setPassword(text);
@@ -312,12 +278,14 @@ const VaultDetailsScreen = () => {
               }}
               style={styles.input}
             />
-            {passwordError !== '' && (
-              <Text style={styles.errorText}>{passwordError}</Text>
-            )}
+            {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
 
-            <TouchableOpacity style={styles.button} onPress={handleConfirmedAction}>
-              <Text style={styles.buttonText}>Confirmer</Text>
+            <TouchableOpacity
+              style={[styles.button, isLoading ? styles.disabledButton : null]}
+              onPress={handleConfirmedAction}
+              disabled={isLoading}
+            >
+              <Text style={styles.buttonText}>{isLoading ? 'Validation...' : 'Confirmer'}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setModalVisible(false)}
@@ -348,46 +316,12 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   buttonText: { color: '#fff', fontWeight: 'bold' },
+  disabledButton: { backgroundColor: '#ccc' },
   modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    padding: 20,
+    flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)', padding: 20,
   },
-  modalContent: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 20,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-  disabledButton: {
-    backgroundColor: '#ccc',
-  },
-
-  balanceSmall: {
-  fontSize: 14,
-  color: '#00796B',
-  fontWeight: '600',
-  },
-  value: {
-    fontSize: 16,
-    color: '#333',
-  },
-
-  errorText: {
-  color: '#D32F2F',
-  marginBottom: 10,
-  textAlign: 'center',
-  fontWeight: '500',
-},
-
+  modalContent: { backgroundColor: 'white', borderRadius: 10, padding: 20 },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' },
+  balanceSmall: { fontSize: 14, color: '#00796B', fontWeight: '600' },
+  errorText: { color: '#D32F2F', marginBottom: 10, textAlign: 'center', fontWeight: '500' },
 });
-
-function setIsLoading(arg0: boolean) {
-  throw new Error('Function not implemented.');
-}

@@ -1,92 +1,79 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  FlatList,
-  StyleSheet,
-  SafeAreaView,
-  ActivityIndicator,
+  View, Text, FlatList, StyleSheet, SafeAreaView, ActivityIndicator,
 } from 'react-native';
 import { getAuth } from 'firebase/auth';
 import {
-  collection,
-  getDocs,
-  doc,
-  updateDoc,
-  query,
-
-  orderBy,
-  getDoc,
+  collection, doc, onSnapshot, orderBy, query, writeBatch, getDoc,
 } from 'firebase/firestore';
 import { db } from '../../services/firebaseConfig';
 
 const NotificationsScreen = () => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
   const user = getAuth().currentUser;
 
   useEffect(() => {
-    const fetchNotifications = async () => {
-      if (!user) return;
+    if (!user) return;
 
+    let unsub: (() => void) | undefined;
+
+    (async () => {
       try {
-        // 1. Récupérer le user
         const userDoc = await getDoc(doc(db, 'users', user.uid));
-        const userData = userDoc.data();
+        const userData = userDoc.data() || {};
+        const notifCol =
+          userData.type === 'entreprise' && userData.entrepriseId
+            ? collection(db, 'entreprises', userData.entrepriseId, 'notifications')
+            : collection(db, 'users', user.uid, 'notifications');
 
-        if (!userData) return;
+        const q = query(notifCol, orderBy('date', 'desc'));
+        unsub = onSnapshot(q, async (snap) => {
+          const items = snap.docs.map((d) => {
+            const data = d.data() as any;
+            const dateObj =
+              data?.date?.toDate ? data.date.toDate()
+              : typeof data?.date === 'string' ? new Date(data.date)
+              : new Date();
+            return { id: d.id, ...data, _date: dateObj };
+          });
 
-        let notifRef;
+          setNotifications(items);
+          setLoading(false);
 
-        // 2. Choisir la bonne source
-        if (userData.type === 'entreprise' && userData.entrepriseId) {
-          notifRef = collection(db, 'entreprises', userData.entrepriseId, 'notifications');
-        } else {
-          notifRef = collection(db, 'users', user.uid, 'notifications');
-        }
-
-        // 3. Récupérer les notifications triées
-        const q = query(notifRef, orderBy('date', 'desc'));
-        const snapshot = await getDocs(q);
-
-        const data = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-
-        setNotifications(data);
-
-        // 4. Marquer comme lues si non lues
-        for (const notif of snapshot.docs) {
-          if (!notif.data().opened) {
-            await updateDoc(doc(notifRef, notif.id), { opened: true });
+          // Marquer opened: true en batch
+          const batch = writeBatch(db);
+          let hasUpdates = false;
+          snap.docs.forEach((d) => {
+            if (!d.get('opened')) {
+              batch.update(doc(notifCol, d.id), { opened: true });
+              hasUpdates = true;
+            }
+          });
+          if (hasUpdates) {
+            try { await batch.commit(); } catch { /* no-op */ }
           }
-        }
-
-      } catch (error) {
-        console.error('Erreur récupération notifications :', error);
-      } finally {
+        });
+      } catch (e) {
+        console.error('Erreur récupération notifications :', e);
         setLoading(false);
       }
-    };
+    })();
 
-    fetchNotifications();
+    return () => { if (unsub) unsub(); };
   }, [user]);
 
   const renderItem = ({ item }: { item: any }) => (
     <View style={styles.notificationItem}>
       <Text style={styles.title}>{item.title}</Text>
       <Text style={styles.message}>{item.message}</Text>
-      <Text style={styles.date}>
-        {new Date(item.date).toLocaleString('fr-FR')}
-      </Text>
+      <Text style={styles.date}>{item._date.toLocaleString('fr-FR')}</Text>
     </View>
   );
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#00796B" />
       </SafeAreaView>
     );
@@ -111,9 +98,9 @@ const NotificationsScreen = () => {
 
 export default NotificationsScreen;
 
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#E0F2F1', padding: 20 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#E0F2F1' },
   header: { fontSize: 22, fontWeight: 'bold', marginBottom: 20 },
   notificationItem: {
     backgroundColor: '#fff',
