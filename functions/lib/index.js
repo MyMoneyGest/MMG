@@ -33,8 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.mirrorVaultTxToFeed = exports.processVaultCommand = exports.processTransaction = void 0;
-// functions/src/index.ts
+exports.onPaymentRequestCreated = exports.mirrorVaultTxToFeed = exports.processVaultCommand = exports.processTransaction = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const admin = __importStar(require("firebase-admin"));
 admin.initializeApp();
@@ -49,6 +48,7 @@ function formatRef(counterNext, d = new Date()) {
 }
 /** =========================================================
  *  1) Virements Airtel -> historique + activityFeed + notifications
+ *  + réglage de demande de paiement si paymentRequestId présent
  *  =======================================================*/
 exports.processTransaction = (0, firestore_1.onDocumentCreated)('transactions/{transactionId}', async (event) => {
     const snap = event.data;
@@ -192,6 +192,7 @@ exports.processTransaction = (0, firestore_1.onDocumentCreated)('transactions/{t
             counterpartyName: senderName,
             date: admin.firestore.FieldValue.serverTimestamp(),
             opened: false,
+            read: false,
         });
         // (Optionnel) notif expéditeur
         t.set(senderNotifRef, {
@@ -205,6 +206,7 @@ exports.processTransaction = (0, firestore_1.onDocumentCreated)('transactions/{t
             counterpartyName: receiverName,
             date: admin.firestore.FieldValue.serverTimestamp(),
             opened: false,
+            read: false,
         });
         // Finalisation globale
         t.update(transactionRef, {
@@ -212,6 +214,49 @@ exports.processTransaction = (0, firestore_1.onDocumentCreated)('transactions/{t
             reference,
             processedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
+        /** ✅ Si la transaction correspond à une demande de paiement, on la marque payée */
+        const reqId = freshTx.get('paymentRequestId') || txData.paymentRequestId;
+        if (reqId) {
+            const reqRef = db.doc(`paymentRequests/${reqId}`);
+            const reqSnap = await t.get(reqRef);
+            if (reqSnap.exists) {
+                const r = reqSnap.data();
+                // Sécurité : la partie payeuse est la target, le receveur est le requester
+                if (r.status === 'pending' && r.targetUid === senderUid && r.requesterUid === receiverUid) {
+                    t.update(reqRef, {
+                        status: 'paid',
+                        paidAt: admin.firestore.FieldValue.serverTimestamp(),
+                        paidByTx: txId,
+                        reference,
+                    });
+                    // Notifications de confirmation
+                    const notifTarget = db.doc(`users/${senderUid}/notifications/req_${reqId}_paid_out`);
+                    const notifRequester = db.doc(`users/${receiverUid}/notifications/req_${reqId}_paid_in`);
+                    t.set(notifTarget, {
+                        title: 'Demande payée',
+                        message: `Vous avez payé ${Number(amount).toLocaleString()} FCFA à ${receiverName}. Réf: ${reference}`,
+                        kind: 'request_paid_out',
+                        paymentRequestId: reqId,
+                        reference,
+                        amount,
+                        date: admin.firestore.FieldValue.serverTimestamp(),
+                        opened: false,
+                        read: false,
+                    });
+                    t.set(notifRequester, {
+                        title: 'Demande réglée',
+                        message: `${senderName} a payé ${Number(amount).toLocaleString()} FCFA. Réf: ${reference}`,
+                        kind: 'request_paid_in',
+                        paymentRequestId: reqId,
+                        reference,
+                        amount,
+                        date: admin.firestore.FieldValue.serverTimestamp(),
+                        opened: false,
+                        read: false,
+                    });
+                }
+            }
+        }
     }).catch(async (err) => {
         console.error('Erreur runTransaction processTransaction:', err);
         try {
@@ -332,6 +377,7 @@ exports.processVaultCommand = (0, firestore_1.onDocumentCreated)('users/{userId}
             amount,
             date: admin.firestore.FieldValue.serverTimestamp(),
             opened: false,
+            read: false,
         });
         // Terminer l’ordre
         t.update(snap.ref, { status: 'success', reference, processedAt: admin.firestore.FieldValue.serverTimestamp() });
@@ -376,4 +422,40 @@ exports.mirrorVaultTxToFeed = (0, firestore_1.onDocumentCreated)('users/{userId}
             timestamp: data?.timestamp || admin.firestore.FieldValue.serverTimestamp(),
         });
     }).catch((e) => console.error('mirrorVaultTxToFeed error:', e));
+});
+/** =========================================================
+ *  4) Demandes de paiement — création -> notifications
+ *  =======================================================*/
+exports.onPaymentRequestCreated = (0, firestore_1.onDocumentCreated)('paymentRequests/{reqId}', async (event) => {
+    const snap = event.data;
+    if (!snap)
+        return;
+    const req = snap.data();
+    // Notifications (destinataire + accusé émetteur)
+    const targetNotifRef = db.doc(`users/${req.targetUid}/notifications/${snap.id}`);
+    const requesterNotifRef = db.doc(`users/${req.requesterUid}/notifications/req_${snap.id}`);
+    const requesterDisplay = req.requesterName || 'Un utilisateur';
+    const msgTarget = `${requesterDisplay} vous demande ${Number(req.amount).toLocaleString()} FCFA${req.note ? ` – ${req.note}` : ''}.`;
+    await targetNotifRef.set({
+        title: 'Demande de paiement reçue',
+        message: msgTarget,
+        kind: 'request_in',
+        paymentRequestId: snap.id,
+        amount: req.amount,
+        note: req.note || '',
+        date: admin.firestore.FieldValue.serverTimestamp(),
+        opened: false,
+        read: false,
+    });
+    await requesterNotifRef.set({
+        title: 'Demande envoyée',
+        message: `Votre demande de ${Number(req.amount).toLocaleString()} FCFA est en attente.`,
+        kind: 'request_out',
+        paymentRequestId: snap.id,
+        amount: req.amount,
+        note: req.note || '',
+        date: admin.firestore.FieldValue.serverTimestamp(),
+        opened: false,
+        read: false,
+    });
 });

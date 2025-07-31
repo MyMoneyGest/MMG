@@ -175,7 +175,7 @@ const AirtelMoneyScreen = () => {
   const handleNavigateToVaults = () => navigation.navigate('VaultsScreen');
   const handleNavigateToBeneficiaries = () => navigation.navigate('AirtelBeneficiairesScreen');
   const handleNavigateToSendMoney = () => navigation.navigate('AirtelSendMoneyScreen');
-  const handleNavigateToRequestPayment = () => navigation.navigate('RequestPaymentScreen');
+  const handleNavigateToRequestPayment = () => navigation.navigate('RequestsHubScreen');
   const handleNavigateToBudgetMensuel = () => navigation.navigate('BudgetMensuelScreen');
 
   // 🔎 Filtre local sur les 3 dernières (type, montant, date, réf)

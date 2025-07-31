@@ -26,6 +26,9 @@ import AirtelBeneficiairesScreen from '../screens/Airtel/AirtelBeneficiairesScre
 import EditBeneficiaryScreen from '../screens/Airtel/EditBeneficiaryScreen';
 import NotificationsScreen from '../screens/Airtel/NotificationsScreen';
 import RequestPaymentScreen from '../screens/Airtel/RequestPaymentScreen';
+import RequestsInboxScreen from '../screens/Airtel/RequestsInboxScreen';
+import PaymentRequestDetail from '../screens/Airtel/PaymentRequestDetail';
+import RequestsHubScreen from '../screens/Airtel/RequestsHubScreen';
 import GestionEntrepriseScreen from '../Entreprise/GestionEntrepriseScreen';
 import EntrepriseRevenusScreen from '../Entreprise/EntrepriseRevenusScreen';
 import BudgetMensuelScreen from '../screens/Airtel/BudgetMensuelScreen';
@@ -83,7 +86,7 @@ export type RootStackParamList = {
   Libertis: undefined;
   Profile: undefined;
   LibertisTransactions: undefined;
-  TransactionDetail: { transaction: Transaction };
+  TransactionDetail: { transaction: Transaction};
   VaultsScreen: undefined;
   LinkAirtelScreen: undefined;
   AirtelSendMoneyScreen : undefined;
@@ -115,6 +118,9 @@ export type RootStackParamList = {
   GestionEntrepriseScreen : undefined;
   EnterSendAmountScreen : undefined;
   RequestPaymentScreen : undefined;
+  RequestsInboxScreen: { filter?: 'received' | 'sent'; highlightId?: string } | undefined;
+  RequestsHubScreen : undefined;
+  PaymentRequestDetail : {requestId : string};
   BudgetMensuelScreen: undefined;
   EntrepriseRevenusScreen : undefined;
   DepenseProfessionnellesScreen : undefined;
@@ -194,6 +200,9 @@ const AppNavigator = ({ initialRoute }: AppNavigatorProps) => {
       <Stack.Screen name="EditBeneficiaryScreen" component={EditBeneficiaryScreen} />
       <Stack.Screen name="NotificationsScreen" component={NotificationsScreen} />
       <Stack.Screen name="RequestPaymentScreen" component={RequestPaymentScreen} />
+      <Stack.Screen name="RequestsInboxScreen" component={RequestsInboxScreen} />
+      <Stack.Screen name="RequestsHubScreen" component={RequestsHubScreen} />
+      <Stack.Screen name="PaymentRequestDetail" component={PaymentRequestDetail} />
       <Stack.Screen name="BudgetMensuelScreen" component={BudgetMensuelScreen} />
       <Stack.Screen name="GestionEntrepriseScreen" component={GestionEntrepriseScreen} />
       <Stack.Screen name="EntrepriseRevenusScreen" component={EntrepriseRevenusScreen} />
