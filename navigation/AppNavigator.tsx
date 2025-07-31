@@ -31,7 +31,6 @@ import PaymentRequestDetail from '../screens/Airtel/PaymentRequestDetail';
 import RequestsHubScreen from '../screens/Airtel/RequestsHubScreen';
 import GestionEntrepriseScreen from '../Entreprise/GestionEntrepriseScreen';
 import EntrepriseRevenusScreen from '../Entreprise/EntrepriseRevenusScreen';
-import BudgetMensuelScreen from '../screens/Airtel/BudgetMensuelScreen';
 import DepenseProfessionnellesScreen from '../Entreprise/DepenseProfessionnellesScreen';
 import FacturesScreen from '../Entreprise/FacturesScreen';
 import EntrepriseRapportsScreen from '../Entreprise/EntrepriseRapportsScreen';
@@ -56,7 +55,12 @@ import MoovMoneyEntrepriseDetailsScreen from '../Entreprise/MoovMoneyEntrepriseD
 import MentionsLegalesScreen from '../screens/Authentification/MentionsLegalesScreen';
 import CompteBancaireEntrepriseScreen from '../Entreprise/CompteBancaireEntrepriseScreen';
 import CompteBancaireEntrepriseDetailsScreen from '../Entreprise/CompteBancaireEntrepriseDetailsScreen';
+import BudgetMensuelScreen from '../screens/Airtel/BudgetMensuelScreen';
+import MonthlyActivityScreen from '../screens/Airtel/MonthlyActivityScreen';
+import StatementsScreen from '../screens/Airtel/StatementsScreen';
 import PolitiqueConfidentialiteScreen from '../screens/Authentification/PolitiqueConfidentialiteScreen';
+import AirtelSupportScreen from '../screens/Airtel/AirtelSupportScreen';
+
 
 export type RootStackParamList = {
 
@@ -90,6 +94,7 @@ export type RootStackParamList = {
   VaultsScreen: undefined;
   LinkAirtelScreen: undefined;
   AirtelSendMoneyScreen : undefined;
+  AirtelSupportScreen : undefined;
   AirtelBeneficiairesScreen: undefined ;
   NotificationsScreen : undefined;
   EditBeneficiaryScreen: {
@@ -140,6 +145,8 @@ export type RootStackParamList = {
   CollaboratorsScreen : undefined;
   MentionsLegales : undefined;
   PolitiqueConfidentialite : undefined;
+  StatementsScreen : undefined;
+  MonthlyActivityScreen : undefined;
   LinkedAccountSectionScreen: {
   companyId: string;
   accountType: 'airtel money' | 'moov money' | 'compte bancaire';
@@ -176,6 +183,8 @@ const AppNavigator = ({ initialRoute }: AppNavigatorProps) => {
   return (
     <Stack.Navigator initialRouteName={initialRoute ?? 'Login'}>
       <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="MonthlyActivityScreen" component={MonthlyActivityScreen} />
+      <Stack.Screen name="StatementsScreen" component={StatementsScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="RegisterCompteProScreen" component={RegisterCompteProScreen} />
       <Stack.Screen name="HomeScreen" component={HomeScreen} />
@@ -189,6 +198,7 @@ const AppNavigator = ({ initialRoute }: AppNavigatorProps) => {
       <Stack.Screen name="LibertisTransactions" component={LibertisTransactionsScreen} />
       <Stack.Screen name="TransactionDetail" component={TransactionDetailScreen} />
       <Stack.Screen name="VaultsScreen" component={VaultsScreen} />
+      <Stack.Screen name="AirtelSupportScreen" component={AirtelSupportScreen} />
       <Stack.Screen name="VaultDetails" component={VaultDetailsScreen} />
       <Stack.Screen name="LinkAirtelScreen" component={LinkAirtelScreen} />
       <Stack.Screen name="AirtelSendMoneyScreen" component={AirtelSendMoneyScreen} />
@@ -204,6 +214,7 @@ const AppNavigator = ({ initialRoute }: AppNavigatorProps) => {
       <Stack.Screen name="RequestsHubScreen" component={RequestsHubScreen} />
       <Stack.Screen name="PaymentRequestDetail" component={PaymentRequestDetail} />
       <Stack.Screen name="BudgetMensuelScreen" component={BudgetMensuelScreen} />
+      <Stack.Screen name="SupportScreen" component={SupportScreen} />
       <Stack.Screen name="GestionEntrepriseScreen" component={GestionEntrepriseScreen} />
       <Stack.Screen name="EntrepriseRevenusScreen" component={EntrepriseRevenusScreen} />
       <Stack.Screen name="DepenseProfessionnellesScreen" component={DepenseProfessionnellesScreen} />
@@ -218,7 +229,6 @@ const AppNavigator = ({ initialRoute }: AppNavigatorProps) => {
       <Stack.Screen name="DevisScreen" component={DevisScreen} />
       <Stack.Screen name="ClientsScreen" component={ClientsScreen} />
       <Stack.Screen name="AjouterCollaborateurScreen" component={AjouterCollaborateurScreen} />
-      <Stack.Screen name="SupportScreen" component={SupportScreen} />
       <Stack.Screen name="EntrepriseInfoScreen" component={EntrepriseInfoScreen} />
       <Stack.Screen name="CollaboratorsScreen" component={CollaboratorsScreen} />
       <Stack.Screen name="CompanyAccountScreen" component={CompanyAccountScreen} />

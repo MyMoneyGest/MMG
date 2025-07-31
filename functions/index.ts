@@ -499,4 +499,69 @@ export const onPaymentRequestCreated = onDocumentCreated('paymentRequests/{reqId
     opened: false,
     read: false,
   });
-});
+  });
+ 
+/**
+ * 5) Demandes de paiement — décision (refus) -> status: 'declined' + notifications
+ *    - Ne traite que 'declined' (l'acceptation passe par la création d'une transaction).
+ */
+export const onPaymentDecisionCreated = onDocumentCreated(
+  'paymentRequests/{reqId}/decisions/{decisionId}',
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+
+    const { reqId } = event.params as { reqId: string };
+    const dec = snap.data() as { actorUid: string; decision: string };
+
+    if (dec.decision !== 'declined') return; // on ne gère ici que le refus
+
+    await db.runTransaction(async (t) => {
+      const reqRef = db.doc(`paymentRequests/${reqId}`);
+      const reqSnap = await t.get(reqRef);
+      if (!reqSnap.exists) return;
+
+      const r = reqSnap.data() as any;
+      if (r.status !== 'pending') return; // idempotent
+
+      // Sécurité : seul la cible (targetUid) peut refuser
+      if (dec.actorUid !== r.targetUid) return;
+
+      // Marque la demande refusée
+      t.update(reqRef, {
+        status: 'declined',
+        decidedAt: admin.firestore.FieldValue.serverTimestamp(),
+        decidedBy: dec.actorUid,
+      });
+
+      // Notifications aux deux parties
+      const notifTarget = db.doc(`users/${r.targetUid}/notifications/req_${reqId}_declined_out`);
+      const notifRequester = db.doc(`users/${r.requesterUid}/notifications/req_${reqId}_declined_in`);
+
+      const amount = Number(r.amount) || 0;
+      const requesterName = r.requesterName || 'Utilisateur';
+
+      t.set(notifTarget, {
+        title: 'Demande refusée',
+        message: `Vous avez refusé la demande de ${amount.toLocaleString()} FCFA (de ${requesterName}).`,
+        kind: 'request_declined_out',
+        paymentRequestId: reqId,
+        amount,
+        date: admin.firestore.FieldValue.serverTimestamp(),
+        opened: false,
+        read: false,
+      });
+
+      t.set(notifRequester, {
+        title: 'Demande refusée',
+        message: `Votre demande de ${amount.toLocaleString()} FCFA a été refusée.`,
+        kind: 'request_declined_in',
+        paymentRequestId: reqId,
+        amount,
+        date: admin.firestore.FieldValue.serverTimestamp(),
+        opened: false,
+        read: false,
+      });
+    });
+  }
+);

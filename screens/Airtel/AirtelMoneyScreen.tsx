@@ -177,6 +177,9 @@ const AirtelMoneyScreen = () => {
   const handleNavigateToSendMoney = () => navigation.navigate('AirtelSendMoneyScreen');
   const handleNavigateToRequestPayment = () => navigation.navigate('RequestsHubScreen');
   const handleNavigateToBudgetMensuel = () => navigation.navigate('BudgetMensuelScreen');
+  const handleNavigateToSupport = () => navigation.navigate('AirtelSupportScreen');
+  const handleNavigateToStatements = () => navigation.navigate('StatementsScreen');
+  const handleNavigateToMonthlyActivity = () => navigation.navigate('MonthlyActivityScreen');
 
   // 🔎 Filtre local sur les 3 dernières (type, montant, date, réf)
   const filtered = recentTx.filter((item) => {
@@ -363,14 +366,24 @@ const AirtelMoneyScreen = () => {
               >
                 <Text style={styles.modalCloseText}>Fermer</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton}>
-                <Ionicons name="analytics" size={20} color="#fff" />
-                <Text style={styles.buttonText}>Activité mensuelle</Text>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => navigation.navigate('MonthlyActivityScreen')}
+              >
+                <Ionicons name="stats-chart" size={20} color="#fff" />
+
+                <Text style={styles.gestionButtonText}>Activité mensuelle</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton}>
-                <Ionicons name="document-text-outline" size={20} color="#fff" />
-                <Text style={styles.buttonText}>Voir mes relevés</Text>
+
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => navigation.navigate('StatementsScreen')}
+              >
+                <Ionicons name="document-text" size={20} color="#fff" />
+                <Text style={styles.gestionButtonText}>Voir mes relevés</Text>
               </TouchableOpacity>
+
+
               <TouchableOpacity
                 style={styles.actionButton}
                 onPress={handleNavigateToBudgetMensuel}
@@ -378,9 +391,13 @@ const AirtelMoneyScreen = () => {
                 <Ionicons name="pie-chart" size={20} color="#fff" />
                 <Text style={styles.buttonText}>Mon budget</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton}>
+
+              <TouchableOpacity 
+                style={styles.actionButton}
+                onPress={handleNavigateToSupport}
+               > 
                 <Ionicons name="people" size={20} color="#fff" />
-                <Text style={styles.buttonText}>Contacts Airtel</Text>
+                <Text style={styles.buttonText}>Support</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -571,4 +588,23 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 15,
     borderTopRightRadius: 15,
   },
+  gestionButton: {
+  backgroundColor: '#007AFF',
+  paddingVertical: 12,
+  paddingHorizontal: 20,
+  borderRadius: 12,
+  marginBottom: 12,
+  alignItems: 'center',
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.2,
+  shadowRadius: 4,
+  elevation: 3,
+},
+
+gestionButtonText: {
+  color: '#fff',
+  fontSize: 16,
+  fontWeight: 'bold',
+},
 });

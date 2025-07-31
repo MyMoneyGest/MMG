@@ -1,35 +1,32 @@
+// screens/airtel/RequestsInboxScreen.tsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  SafeAreaView,
+  StyleSheet,
+  TouchableOpacity,
   View,
   Text,
-  StyleSheet,
-  SafeAreaView,
-  TouchableOpacity,
+  ActivityIndicator,
   FlatList,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../navigation/AppNavigator';
-import { getAuth } from 'firebase/auth';
 import {
   collection,
   onSnapshot,
   orderBy,
   query,
   where,
-  Timestamp,
   DocumentData,
 } from 'firebase/firestore';
-import { db } from '../../services/firebaseConfig';
+
+import { RootStackParamList } from '../../navigation/AppNavigator';
+import { auth, db } from '../../services/firebaseConfig';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'RequestsInboxScreen'>;
+type R = RouteProp<RootStackParamList, 'RequestsInboxScreen'>;
 
-type RouteParams = {
-  filter?: 'received' | 'sent';
-  highlightId?: string;
-};
-
-type PaymentRequest = {
+type Req = {
   id: string;
   requesterUid: string;
   requesterName?: string;
@@ -37,181 +34,181 @@ type PaymentRequest = {
   amount: number;
   note?: string;
   status: 'pending' | 'paid' | 'declined';
-  createdAt?: Timestamp | Date | string | number;
+  createdAt?: any; // Firestore Timestamp | string | number
 };
+
+type TabKey = 'received' | 'sent';
 
 const RequestsInboxScreen = () => {
   const navigation = useNavigation<Nav>();
-  const route = useRoute();
-  const params = (route.params || {}) as RouteParams;
+  const route = useRoute<R>();
+  const initialTab: TabKey = (route.params?.filter as TabKey) || 'received';
+  const highlightRef = useRef<string | undefined>(route.params?.highlightId);
 
-  const [tab, setTab] = useState<'received' | 'sent'>(params.filter ?? 'received');
-  const [received, setReceived] = useState<PaymentRequest[]>([]);
-  const [sent, setSent] = useState<PaymentRequest[]>([]);
+  const user = auth.currentUser;
+
   const [loading, setLoading] = useState(true);
-  const listRef = useRef<FlatList<PaymentRequest>>(null);
-
-  const user = getAuth().currentUser;
+  const [received, setReceived] = useState<Req[]>([]);
+  const [sent, setSent] = useState<Req[]>([]);
+  const [tab, setTab] = useState<TabKey>(initialTab);
 
   useEffect(() => {
     if (!user) return;
 
     const col = collection(db, 'paymentRequests');
 
-    // Reçues
-    const qRecv = query(
+    // Demandes reçues : targetUid == moi
+    const qReceived = query(
       col,
       where('targetUid', '==', user.uid),
       orderBy('createdAt', 'desc')
     );
-    const unsubRecv = onSnapshot(
-      qRecv,
+    const unsubR = onSnapshot(
+      qReceived,
       (snap) => {
-        const arr = snap.docs.map((d) => ({ id: d.id, ...(d.data() as DocumentData) })) as PaymentRequest[];
-        setReceived(arr);
+        const rows: Req[] = snap.docs.map((d) => ({
+          id: d.id,
+          ...(d.data() as DocumentData),
+        })) as any;
+        setReceived(rows);
         setLoading(false);
       },
       (err) => {
-        console.error('Listen received error:', err);
+        console.error('RequestsInbox(received) listen error:', err);
         setLoading(false);
       }
     );
 
-    // Envoyées
+    // Demandes envoyées : requesterUid == moi
     const qSent = query(
       col,
       where('requesterUid', '==', user.uid),
       orderBy('createdAt', 'desc')
     );
-    const unsubSent = onSnapshot(
+    const unsubS = onSnapshot(
       qSent,
       (snap) => {
-        const arr = snap.docs.map((d) => ({ id: d.id, ...(d.data() as DocumentData) })) as PaymentRequest[];
-        setSent(arr);
+        const rows: Req[] = snap.docs.map((d) => ({
+          id: d.id,
+          ...(d.data() as DocumentData),
+        })) as any;
+        setSent(rows);
         setLoading(false);
       },
       (err) => {
-        console.error('Listen sent error:', err);
+        console.error('RequestsInbox(sent) listen error:', err);
         setLoading(false);
       }
     );
 
     return () => {
-      unsubRecv();
-      unsubSent();
+      unsubR();
+      unsubS();
     };
   }, [user?.uid]);
 
-  // Liste affichée selon l’onglet
-  const rows = useMemo(() => (tab === 'received' ? received : sent), [tab, received, sent]);
+  // Dataset selon l’onglet
+  const data = useMemo(() => (tab === 'received' ? received : sent), [tab, received, sent]);
 
-  // Mettre en avant la demande ciblée (depuis une notif)
-  useEffect(() => {
-    if (!params.highlightId || rows.length === 0) return;
-    const idx = rows.findIndex((r) => r.id === params.highlightId);
-    if (idx >= 0) {
-      // petit délai pour laisser la FlatList se monter
-      setTimeout(() => {
-        listRef.current?.scrollToIndex({ index: idx, animated: true });
-      }, 200);
-    }
-  }, [params.highlightId, rows]);
-
-  const formatDate = (v?: Timestamp | Date | string | number) => {
-    if (!v) return '';
-    if (typeof v === 'string' || typeof v === 'number') {
-      return new Date(v).toLocaleString('fr-FR');
-    }
-    const ts: any = v as any;
-    if (ts?.toDate) return ts.toDate().toLocaleString('fr-FR');
-    return new Date(v as Date).toLocaleString('fr-FR');
-    };
-
-  const renderStatus = (s: PaymentRequest['status']) => {
-    switch (s) {
-      case 'pending':
-        return <Text style={[styles.badge, styles.badgePending]}>En attente</Text>;
-      case 'paid':
-        return <Text style={[styles.badge, styles.badgePaid]}>Payée</Text>;
-      case 'declined':
-        return <Text style={[styles.badge, styles.badgeDeclined]}>Refusée</Text>;
-      default:
-        return null;
-    }
+  const openDetail = (req: Req) => {
+    navigation.navigate('PaymentRequestDetail', { requestId: req.id });
   };
 
-  const renderItem = ({ item }: { item: PaymentRequest }) => {
-    const isReceived = tab === 'received';
-    const title = isReceived
-      ? `${item.requesterName || 'Utilisateur'} vous a demandé`
-      : `Vous avez demandé à ${item.targetUid === user?.uid ? 'vous-même' : ''}`;
+  const renderItem = ({ item }: { item: Req }) => {
+    const created =
+      item.createdAt?.toDate
+        ? item.createdAt.toDate()
+        : new Date(item.createdAt ?? Date.now());
+
+    const isHighlight = highlightRef.current === item.id;
+    const isMine = item.requesterUid === user?.uid;
 
     return (
       <TouchableOpacity
-        style={[
-          styles.card,
-          params.highlightId === item.id && styles.highlight,
-        ]}
-        onPress={() => {
-          // Si tu as un écran de détail, décommente :
-          // navigation.navigate('PaymentRequestDetail', { requestId: item.id });
-        }}
+        onPress={() => openDetail(item)}
+        style={[styles.row, isHighlight && styles.highlightRow]}
       >
-        <View style={styles.rowBetween}>
-          <Text style={styles.title}>
-            {isReceived
-              ? `${item.requesterName || 'Utilisateur'}`
-              : 'Demande envoyée'}
+        <View style={{ flex: 1 }}>
+          <Text style={styles.lineTop}>
+            {tab === 'received'
+              ? `De ${item.requesterName ?? 'Utilisateur'}`
+              : `À ${item.targetUid === user?.uid ? 'vous' : 'destinataire'}`}
           </Text>
-          {renderStatus(item.status)}
+
+          {item.note ? <Text style={styles.note}>{item.note}</Text> : null}
+
+          <Text style={styles.date}>{created.toLocaleString('fr-FR')}</Text>
         </View>
 
-        {item.note ? <Text style={styles.note}>{item.note}</Text> : null}
-
-        <View style={styles.rowBetween}>
-          <Text style={styles.amount}>{`${Number(item.amount).toLocaleString()} FCFA`}</Text>
-          <Text style={styles.date}>{formatDate(item.createdAt)}</Text>
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text style={styles.amount}>
+            {Number(item.amount).toLocaleString()} FCFA
+          </Text>
+          <Text
+            style={[
+              styles.status,
+              item.status === 'pending' && { color: '#B07100' },
+              item.status === 'paid' && { color: '#2E7D32' },
+              item.status === 'declined' && { color: '#B71C1C' },
+            ]}
+          >
+            {item.status}
+          </Text>
         </View>
       </TouchableOpacity>
     );
   };
 
+  const Empty = () => (
+    <Text style={styles.empty}>
+      {tab === 'received'
+        ? 'Aucune demande reçue.'
+        : 'Aucune demande envoyée.'}
+    </Text>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
+      {/* Onglets “côte à côte” */}
       <View style={styles.tabs}>
         <TouchableOpacity
           style={[styles.tabBtn, tab === 'received' && styles.tabBtnActive]}
           onPress={() => setTab('received')}
         >
-          <Text style={[styles.tabText, tab === 'received' && styles.tabTextActive]}>
+          <Text style={[styles.tabLabel, tab === 'received' && styles.tabLabelActive]}>
             Reçues
           </Text>
+          <View style={styles.countPill}>
+            <Text style={styles.countText}>{received.length}</Text>
+          </View>
         </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.tabBtn, tab === 'sent' && styles.tabBtnActive]}
           onPress={() => setTab('sent')}
         >
-          <Text style={[styles.tabText, tab === 'sent' && styles.tabTextActive]}>
+          <Text style={[styles.tabLabel, tab === 'sent' && styles.tabLabelActive]}>
             Envoyées
           </Text>
+          <View style={styles.countPill}>
+            <Text style={styles.countText}>{sent.length}</Text>
+          </View>
         </TouchableOpacity>
       </View>
 
-      <FlatList
-        ref={listRef}
-        data={rows}
-        keyExtractor={(it) => it.id}
-        renderItem={renderItem}
-        contentContainerStyle={{ padding: 16 }}
-        ListEmptyComponent={
-          <Text style={styles.empty}>
-            {loading ? 'Chargement…' : tab === 'received'
-              ? 'Aucune demande reçue.'
-              : 'Aucune demande envoyée.'}
-          </Text>
-        }
-        onScrollToIndexFailed={() => {}}
-      />
+      {loading ? (
+        <View style={styles.loadingBox}>
+          <ActivityIndicator />
+        </View>
+      ) : (
+        <FlatList
+          data={data}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+          ListEmptyComponent={<Empty />}
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -220,57 +217,74 @@ export default RequestsInboxScreen;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#E0F2F1' },
+
+  // Onglets
   tabs: {
     flexDirection: 'row',
-    marginTop: 8,
     marginHorizontal: 16,
-    backgroundColor: '#ffffff',
-    borderRadius: 10,
+    marginTop: 16,
+    backgroundColor: '#C8E6C9',
+    borderRadius: 12,
     overflow: 'hidden',
   },
   tabBtn: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 10,
     alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
   },
   tabBtnActive: {
-    backgroundColor: '#B2DFDB',
+    backgroundColor: '#ffffff',
   },
-  tabText: {
+  tabLabel: {
+    fontSize: 15,
+    color: '#004D40',
     fontWeight: '600',
+  },
+  tabLabelActive: {
     color: '#00796B',
   },
-  tabTextActive: {
-    color: '#004D40',
+  countPill: {
+    minWidth: 24,
+    paddingHorizontal: 6,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#00796B',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  card: {
+  countText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  // Liste / items
+  row: {
     backgroundColor: '#fff',
+    marginBottom: 10,
     borderRadius: 10,
     padding: 12,
-    marginBottom: 12,
+    flexDirection: 'row',
+    gap: 10,
+    elevation: 1,
     shadowColor: '#000',
     shadowOpacity: 0.05,
     shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
+    marginHorizontal: 16,
   },
-  highlight: {
+  highlightRow: {
     borderWidth: 2,
-    borderColor: '#00796B',
+    borderColor: '#00BCD4',
   },
-  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  title: { fontSize: 16, fontWeight: '700', color: '#004D40' },
-  note: { marginTop: 6, color: '#333' },
-  amount: { fontSize: 16, fontWeight: '700' },
-  date: { fontSize: 12, color: '#666' },
-  empty: { textAlign: 'center', color: '#555', marginTop: 40 },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    fontSize: 12,
-    overflow: 'hidden',
-  } as any,
-  badgePending: { backgroundColor: '#FFF3CD', color: '#946200' },
-  badgePaid: { backgroundColor: '#D1E7DD', color: '#0F5132' },
-  badgeDeclined: { backgroundColor: '#F8D7DA', color: '#842029' },
+  lineTop: { fontSize: 15, fontWeight: '600', color: '#004D40' },
+  amount: { fontSize: 15, fontWeight: '700' },
+  status: { marginTop: 4, fontSize: 12 },
+  note: { marginTop: 2, fontSize: 13, color: '#333' },
+  date: { marginTop: 4, fontSize: 12, color: '#666' },
+
+  loadingBox: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  empty: { textAlign: 'center', color: '#555', marginTop: 30 },
 });

@@ -6,7 +6,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { auth, db } from '../../services/firebaseConfig';
 import {
-  doc, getDoc, addDoc, collection, serverTimestamp,
+  doc, onSnapshot, addDoc, collection, serverTimestamp,
 } from 'firebase/firestore';
 
 type R = RouteProp<RootStackParamList, 'PaymentRequestDetail'>;
@@ -20,40 +20,50 @@ const PaymentRequestDetail = () => {
   const [loading, setLoading] = useState(true);
   const [req, setReq] = useState<any | null>(null);
 
+  const user = auth.currentUser;
+
+  const isTarget = !!(user && req && req.targetUid === user.uid);
+  const isRequester = !!(user && req && req.requesterUid === user.uid);
+  const isPending = req?.status === 'pending';
+
   useEffect(() => {
-    const load = async () => {
-      try {
-        const snap = await getDoc(doc(db, 'paymentRequests', requestId));
+    const ref = doc(db, 'paymentRequests', requestId);
+    const unsub = onSnapshot(
+      ref,
+      (snap) => {
         if (!snap.exists()) {
           Alert.alert('Erreur', 'Demande introuvable.');
           navigation.goBack();
           return;
         }
         setReq({ id: snap.id, ...snap.data() });
-      } catch (e) {
+        setLoading(false);
+      },
+      (e) => {
         console.error(e);
         Alert.alert('Erreur', 'Impossible de charger la demande.');
         navigation.goBack();
-      } finally {
-        setLoading(false);
       }
-    };
-    load();
+    );
+    return () => unsub();
   }, [requestId]);
 
   const accept = async () => {
-    const user = auth.currentUser;
     if (!user || !req) return;
+    if (!isTarget || !isPending) {
+      Alert.alert('Info', "Vous ne pouvez pas accepter cette demande.");
+      return;
+    }
 
     try {
-      // Création d'une transaction "pending"
+      // Création d'une transaction 'pending' liée à la demande
       await addDoc(collection(db, 'transactions'), {
-        senderUid: user.uid,                 // ✅ le payeur (cible de la demande)
-        receiverUid: req.requesterUid,       // ✅ le demandeur sera crédité
+        senderUid: user.uid,           // ✅ payeur = cible de la demande
+        receiverUid: req.requesterUid, // ✅ le demandeur sera crédité
         amount: Number(req.amount),
         note: req.note ?? 'Règlement demande',
         status: 'pending',
-        paymentRequestId: req.id,            // ✅ important pour que la Function lie et mette "accepted"
+        paymentRequestId: req.id,      // ✅ important
         createdAt: serverTimestamp(),
       });
 
@@ -66,10 +76,14 @@ const PaymentRequestDetail = () => {
   };
 
   const decline = async () => {
-    const user = auth.currentUser;
     if (!user || !req) return;
+    if (!isTarget || !isPending) {
+      Alert.alert('Info', "Vous ne pouvez pas refuser cette demande.");
+      return;
+    }
+
     try {
-      // On crée une décision dans une sous-collection ; la Function mettra status:'declined'
+      // On crée une décision 'declined' : la Function mettra la demande à declined + notifs
       await addDoc(collection(db, 'paymentRequests', req.id, 'decisions'), {
         actorUid: user.uid,
         decision: 'declined',
@@ -99,7 +113,8 @@ const PaymentRequestDetail = () => {
       {req.note ? <Text style={styles.line}>Motif : {req.note}</Text> : null}
       <Text style={styles.line}>Statut : {req.status}</Text>
 
-      {req.status === 'pending' ? (
+      {/* Boutons visibles seulement pour la cible et si pending */}
+      {isTarget && isPending ? (
         <>
           <TouchableOpacity style={[styles.btn, { backgroundColor: '#2E7D32' }]} onPress={accept}>
             <Text style={styles.btnText}>Accepter</Text>
@@ -108,6 +123,10 @@ const PaymentRequestDetail = () => {
             <Text style={styles.btnText}>Refuser</Text>
           </TouchableOpacity>
         </>
+      ) : isRequester && isPending ? (
+        <Text style={{ marginTop: 16, color: '#00796B' }}>
+          En attente d’action de la personne sollicitée.
+        </Text>
       ) : (
         <Text style={{ marginTop: 16, color: '#00796B' }}>
           Cette demande est {req.status}.

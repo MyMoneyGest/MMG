@@ -15,25 +15,15 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onPaymentRequestCreated = exports.mirrorVaultTxToFeed = exports.processVaultCommand = exports.processTransaction = void 0;
+exports.onPaymentDecisionCreated = exports.onPaymentRequestCreated = exports.mirrorVaultTxToFeed = exports.processVaultCommand = exports.processTransaction = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const admin = __importStar(require("firebase-admin"));
 admin.initializeApp();
@@ -459,3 +449,60 @@ exports.onPaymentRequestCreated = (0, firestore_1.onDocumentCreated)('paymentReq
         read: false,
     });
 });
+/**
+ * 5) Demandes de paiement — décision (refus) -> status: 'declined' + notifications
+ *    - Ne traite que 'declined' (l'acceptation passe par la création d'une transaction).
+ */
+exports.onPaymentDecisionCreated = (0, firestore_1.onDocumentCreated)('paymentRequests/{reqId}/decisions/{decisionId}', async (event) => {
+    const snap = event.data;
+    if (!snap)
+        return;
+    const { reqId } = event.params;
+    const dec = snap.data();
+    if (dec.decision !== 'declined')
+        return; // on ne gère ici que le refus
+    await db.runTransaction(async (t) => {
+        const reqRef = db.doc(`paymentRequests/${reqId}`);
+        const reqSnap = await t.get(reqRef);
+        if (!reqSnap.exists)
+            return;
+        const r = reqSnap.data();
+        if (r.status !== 'pending')
+            return; // idempotent
+        // Sécurité : seul la cible (targetUid) peut refuser
+        if (dec.actorUid !== r.targetUid)
+            return;
+        // Marque la demande refusée
+        t.update(reqRef, {
+            status: 'declined',
+            decidedAt: admin.firestore.FieldValue.serverTimestamp(),
+            decidedBy: dec.actorUid,
+        });
+        // Notifications aux deux parties
+        const notifTarget = db.doc(`users/${r.targetUid}/notifications/req_${reqId}_declined_out`);
+        const notifRequester = db.doc(`users/${r.requesterUid}/notifications/req_${reqId}_declined_in`);
+        const amount = Number(r.amount) || 0;
+        const requesterName = r.requesterName || 'Utilisateur';
+        t.set(notifTarget, {
+            title: 'Demande refusée',
+            message: `Vous avez refusé la demande de ${amount.toLocaleString()} FCFA (de ${requesterName}).`,
+            kind: 'request_declined_out',
+            paymentRequestId: reqId,
+            amount,
+            date: admin.firestore.FieldValue.serverTimestamp(),
+            opened: false,
+            read: false,
+        });
+        t.set(notifRequester, {
+            title: 'Demande refusée',
+            message: `Votre demande de ${amount.toLocaleString()} FCFA a été refusée.`,
+            kind: 'request_declined_in',
+            paymentRequestId: reqId,
+            amount,
+            date: admin.firestore.FieldValue.serverTimestamp(),
+            opened: false,
+            read: false,
+        });
+    });
+});
+//# sourceMappingURL=index.js.map
