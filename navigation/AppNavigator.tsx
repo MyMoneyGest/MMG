@@ -58,6 +58,7 @@ import CompteBancaireEntrepriseDetailsScreen from '../Entreprise/CompteBancaireE
 import BudgetMensuelScreen from '../screens/Airtel/BudgetMensuelScreen';
 import MonthlyActivityScreen from '../screens/Airtel/MonthlyActivityScreen';
 import StatementsScreen from '../screens/Airtel/StatementsScreen';
+import AirtelRechargeScreen from '../screens/Airtel/AirtelRechargeScreen';
 import PolitiqueConfidentialiteScreen from '../screens/Authentification/PolitiqueConfidentialiteScreen';
 import AirtelSupportScreen from '../screens/Airtel/AirtelSupportScreen';
 
@@ -147,6 +148,7 @@ export type RootStackParamList = {
   PolitiqueConfidentialite : undefined;
   StatementsScreen : undefined;
   MonthlyActivityScreen : undefined;
+  AirtelRechargeScreen : undefined;
   LinkedAccountSectionScreen: {
   companyId: string;
   accountType: 'airtel money' | 'moov money' | 'compte bancaire';
@@ -183,6 +185,7 @@ const AppNavigator = ({ initialRoute }: AppNavigatorProps) => {
   return (
     <Stack.Navigator initialRouteName={initialRoute ?? 'Login'}>
       <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="AirtelRechargeScreen" component={AirtelRechargeScreen} />
       <Stack.Screen name="MonthlyActivityScreen" component={MonthlyActivityScreen} />
       <Stack.Screen name="StatementsScreen" component={StatementsScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />

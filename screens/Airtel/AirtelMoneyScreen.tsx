@@ -180,6 +180,7 @@ const AirtelMoneyScreen = () => {
   const handleNavigateToSupport = () => navigation.navigate('AirtelSupportScreen');
   const handleNavigateToStatements = () => navigation.navigate('StatementsScreen');
   const handleNavigateToMonthlyActivity = () => navigation.navigate('MonthlyActivityScreen');
+  const handleNavigateToAirtelRecharge = () => navigation.navigate('AirtelRechargeScreen');
 
   // 🔎 Filtre local sur les 3 dernières (type, montant, date, réf)
   const filtered = recentTx.filter((item) => {
@@ -347,10 +348,12 @@ const AirtelMoneyScreen = () => {
                 <FontAwesome name="money" size={20} color="#fff" />
                 <Text style={styles.buttonText}>Demander</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton}>
+
+              <TouchableOpacity style={styles.actionButton} onPress={handleNavigateToAirtelRecharge}>
                 <MaterialIcons name="add-circle-outline" size={20} color="#fff" />
                 <Text style={styles.buttonText}>Recharger</Text>
               </TouchableOpacity>
+
               <TouchableOpacity style={styles.actionButton}>
                 <FontAwesome5 name="money-bill-wave" size={20} color="#fff" />
                 <Text style={styles.buttonText}>Retirer</Text>
@@ -371,7 +374,6 @@ const AirtelMoneyScreen = () => {
                 onPress={() => navigation.navigate('MonthlyActivityScreen')}
               >
                 <Ionicons name="stats-chart" size={20} color="#fff" />
-
                 <Text style={styles.gestionButtonText}>Activité mensuelle</Text>
               </TouchableOpacity>
 
