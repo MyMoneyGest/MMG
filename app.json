@@ -4,7 +4,7 @@
     "slug": "MyMoneyGest",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/logo_mymoneygest.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -17,18 +17,24 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+      "foregroundImage": "./assets/logo_mymoneygest.png",
+      "backgroundColor": "#ffffff"
+      }
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE"
       ],
-      "jsEngine": "hermes"
+      "jsEngine": "hermes",
+      "package": "com.mymoneygest.mmg"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "9540e60a-65a6-4d5b-8bad-837862efb0cd"
+      }
     }
   }
-}

@@ -122,6 +122,7 @@ const RegisterScreen = () => {
       };
 
       await setDoc(doc(db, 'users', user.uid), userData);
+
       await setDoc(doc(db, 'phoneDirectory', user.uid), {
         uid: user.uid,
         phone,
@@ -176,35 +177,41 @@ const RegisterScreen = () => {
         <>
           <Text style={styles.title}>Compte Personnel</Text>
 
-          <TextInput style={styles.input} placeholder="Nom complet" value={name} onChangeText={setName} />
+          <TextInput
+            style={styles.input}
+            placeholder="Nom complet"
+            placeholderTextColor="#666"   // ajouté
+            value={name}
+            onChangeText={setName}
+          />
           {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
 
           <View style={styles.phoneContainer}>
   <Text style={styles.prefix}>+241</Text>
   <TextInput
-    style={styles.phoneInput}
-    placeholder="ex: 060000000"
-    keyboardType="phone-pad"
-    value={phone}
-    onChangeText={(text) => {
-      // Optionnel : empêcher les espaces et lettres
-      const cleaned = text.replace(/[^\d]/g, '');
-      setPhone(cleaned);
-    }}
-    maxLength={9}
-  />
+  style={styles.phoneInput}
+  placeholder="ex: 060000000"
+  placeholderTextColor="#666"   // ajouté
+  keyboardType="phone-pad"
+  value={phone}
+  onChangeText={(text) => {
+    const cleaned = text.replace(/[^\d]/g, '');
+    setPhone(cleaned);
+  }}
+  maxLength={9}
+/>
 </View>
 {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
 
           {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
 
-          <TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+          <TextInput style={styles.input} placeholder="Email" placeholderTextColor="#666" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
           {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
 
-          <TextInput style={styles.input} placeholder="Mot de passe" value={password} onChangeText={setPassword} secureTextEntry={secure} />
+          <TextInput style={styles.input} placeholder="Mot de passe" placeholderTextColor="#666" value={password} onChangeText={setPassword} secureTextEntry={secure} />
           {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
 
-          <TextInput style={styles.input} placeholder="Confirmer mot de passe" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry={secure} />
+          <TextInput style={styles.input} placeholder="Confirmer mot de passe" placeholderTextColor="#666" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry={secure} />
           {confirmError ? <Text style={styles.errorText}>{confirmError}</Text> : null}
 
           <TouchableOpacity onPress={() => setSecure(!secure)} style={{ alignSelf: 'flex-end', marginBottom: 15 }}>

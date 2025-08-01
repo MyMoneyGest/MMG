@@ -88,6 +88,7 @@ const EntrepriseCodeScreen = () => {
         <TextInput
           style={styles.input}
           placeholder="Code entreprise"
+          placeholderTextColor="#666" 
           value={code}
           onChangeText={setCode}
           autoCapitalize="characters"

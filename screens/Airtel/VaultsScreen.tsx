@@ -190,12 +190,14 @@ const VaultsScreen = () => {
 
               <TextInput
                 placeholder="Nom du coffre"
+                placeholderTextColor="#666"
                 value={vaultName}
                 onChangeText={setVaultName}
                 style={styles.input}
               />
               <TextInput
                 placeholder="Objectif (optionnel)"
+                placeholderTextColor="#666"
                 value={vaultGoal}
                 onChangeText={setVaultGoal}
                 style={styles.input}
@@ -204,6 +206,7 @@ const VaultsScreen = () => {
               {selectedType === 'locked' && (
                 <TextInput
                   placeholder="Durée de blocage (en jours)"
+                  placeholderTextColor="#666"
                   value={lockDuration}
                   onChangeText={setLockDuration}
                   style={styles.input}

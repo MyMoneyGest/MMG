@@ -135,11 +135,14 @@ const LoginScreen = () => {
           <Image source={require('../../assets/logo_mymoneygest.jpg')} style={styles.logo} />
           <Text style={styles.title}>Bienvenue sur MyMoneyGest</Text>
 
+          // ... (imports et code inchangés)
+
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Adresse email</Text>
             <TextInput
               style={[styles.input, emailError ? styles.inputError : null]}
               placeholder="ex: utilisateur@email.com"
+              placeholderTextColor="#666"  // <-- ajouté ici
               keyboardType="email-address"
               value={email}
               onChangeText={setEmail}
@@ -157,6 +160,7 @@ const LoginScreen = () => {
               <TextInput
                 style={styles.passwordInput}
                 placeholder="••••••••"
+                placeholderTextColor="#666"  // <-- ajouté ici
                 secureTextEntry={secure}
                 value={password}
                 onChangeText={setPassword}

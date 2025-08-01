@@ -69,6 +69,7 @@ const ChangePasswordScreen = () => {
         <TextInput
           style={styles.passwordInput}
           placeholder="Nouveau mot de passe"
+          placeholderTextColor="#666" 
           secureTextEntry={!showPassword}
           value={newPassword}
           onChangeText={setNewPassword}
@@ -86,6 +87,7 @@ const ChangePasswordScreen = () => {
         <TextInput
           style={styles.passwordInput}
           placeholder="Confirmer le mot de passe"
+          placeholderTextColor="#666" 
           secureTextEntry={!showConfirm}
           value={confirmPassword}
           onChangeText={setConfirmPassword}

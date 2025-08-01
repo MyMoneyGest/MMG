@@ -139,6 +139,7 @@ const BudgetMensuelScreen = () => {
           style={styles.input}
           keyboardType="numeric"
           placeholder="Ex: 250000"
+          placeholderTextColor="#666"
           value={salaire}
           onChangeText={setSalaire}
         />
@@ -147,6 +148,7 @@ const BudgetMensuelScreen = () => {
           style={styles.input}
           keyboardType="numeric"
           placeholder="Ex: 50000"
+          placeholderTextColor="#666"
           value={autresRevenus}
           onChangeText={setAutresRevenus}
         />

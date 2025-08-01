@@ -204,6 +204,7 @@ const EntrepriseRegisterScreen = () => {
       <TextInput
         style={styles.input}
         placeholder={label}
+        placeholderTextColor="#666" 
         value={value}
         onChangeText={onChangeText}
         {...props}
