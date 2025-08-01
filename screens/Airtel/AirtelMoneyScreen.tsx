@@ -181,6 +181,7 @@ const AirtelMoneyScreen = () => {
   const handleNavigateToStatements = () => navigation.navigate('StatementsScreen');
   const handleNavigateToMonthlyActivity = () => navigation.navigate('MonthlyActivityScreen');
   const handleNavigateToAirtelRecharge = () => navigation.navigate('AirtelRechargeScreen');
+  const handleNavigateToAirtelRetirer = () => navigation.navigate('AirtelWithdrawScreen');
 
   // 🔎 Filtre local sur les 3 dernières (type, montant, date, réf)
   const filtered = recentTx.filter((item) => {
@@ -243,6 +244,7 @@ const AirtelMoneyScreen = () => {
               <TextInput
                 style={styles.searchInput}
                 placeholder="Rechercher par type, montant, date, réf..."
+                placeholderTextColor="#666"
                 value={searchQuery}
                 onChangeText={setSearchQuery}
               />
@@ -354,7 +356,7 @@ const AirtelMoneyScreen = () => {
                 <Text style={styles.buttonText}>Recharger</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.actionButton}>
+              <TouchableOpacity style={styles.actionButton} onPress={handleNavigateToAirtelRetirer}>
                 <FontAwesome5 name="money-bill-wave" size={20} color="#fff" />
                 <Text style={styles.buttonText}>Retirer</Text>
               </TouchableOpacity>

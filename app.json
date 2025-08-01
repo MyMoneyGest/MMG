@@ -17,24 +17,30 @@
     },
     "android": {
       "adaptiveIcon": {
-      "foregroundImage": "./assets/logo_mymoneygest.png",
-      "backgroundColor": "#ffffff"
-      }
+        "foregroundImage": "./assets/logo_mymoneygest.png",
+        "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
-      "permissions": [
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
-      ],
-      "jsEngine": "hermes",
       "package": "com.mymoneygest.mmg"
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
+    "edgeToEdgeEnabled": true,
+    "permissions": [
+      "READ_EXTERNAL_STORAGE",
+      "WRITE_EXTERNAL_STORAGE"
+    ],
+    "jsEngine": "hermes",
+    "package": "com.mymoneygest.mmg",
     "extra": {
       "eas": {
         "projectId": "9540e60a-65a6-4d5b-8bad-837862efb0cd"
       }
     }
+  },
+  "web": {
+    "favicon": "./assets/favicon.png"
+  },
+  "extra": {
+    "eas": {
+      "projectId": "9540e60a-65a6-4d5b-8bad-837862efb0cd"
+    }
   }
+}

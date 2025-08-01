@@ -195,6 +195,7 @@ export default function AirtelMoneyAllTransactions() {
         <TextInput
           style={styles.input}
           placeholder="Rechercher (nom, type, montant, date, réf, coffre)…"
+          placeholderTextColor="#666"
           value={searchQuery}
           onChangeText={setSearchQuery}
           autoCorrect={false}

@@ -59,6 +59,7 @@ import BudgetMensuelScreen from '../screens/Airtel/BudgetMensuelScreen';
 import MonthlyActivityScreen from '../screens/Airtel/MonthlyActivityScreen';
 import StatementsScreen from '../screens/Airtel/StatementsScreen';
 import AirtelRechargeScreen from '../screens/Airtel/AirtelRechargeScreen';
+import AirtelWithdrawScreen from '../screens/Airtel/AirtelWithdrawScreen';
 import PolitiqueConfidentialiteScreen from '../screens/Authentification/PolitiqueConfidentialiteScreen';
 import AirtelSupportScreen from '../screens/Airtel/AirtelSupportScreen';
 
@@ -87,6 +88,7 @@ export type RootStackParamList = {
   ForgotPassword: undefined;
   ChangePassword: undefined;
   AirtelMoney: undefined;
+  AirtelWithdrawScreen : undefined;
   AirtelMoneyAllTransactions: undefined;
   Libertis: undefined;
   Profile: undefined;
@@ -188,6 +190,7 @@ const AppNavigator = ({ initialRoute }: AppNavigatorProps) => {
       <Stack.Screen name="AirtelRechargeScreen" component={AirtelRechargeScreen} />
       <Stack.Screen name="MonthlyActivityScreen" component={MonthlyActivityScreen} />
       <Stack.Screen name="StatementsScreen" component={StatementsScreen} />
+      <Stack.Screen name="AirtelWithdrawScreen" component={AirtelWithdrawScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="RegisterCompteProScreen" component={RegisterCompteProScreen} />
       <Stack.Screen name="HomeScreen" component={HomeScreen} />
