@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+// ✅ Version finale MVP - BudgetMensuelScreen.tsx
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,14 +12,9 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { v4 as uuidv4 } from 'uuid';
 import 'react-native-get-random-values';
-
-
-type Depense = {
-  id: string;
-  nom: string;
-  montant: number | null;
-  type: 'Fixe' | 'Variable';
-};
+import { getAuth } from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { db } from '../../services/firebaseConfig';
 
 const suggestionsFixes = [
   { nom: 'Loyer', montant: 100000 },
@@ -31,72 +27,71 @@ const suggestionsVariables = [
   { nom: 'Loisirs', montant: 15000 },
 ];
 
-const BudgetMensuelScreen = () => {
-  const [salaire, setSalaire] = useState<string>('');
-  const [autresRevenus, setAutresRevenus] = useState<string>('');
-  const [depenses, setDepenses] = useState<Depense[]>([]);
+type Depense = {
+  id: string;
+  nom: string;
+  montant: number | null;
+  type: 'Fixe' | 'Variable';
+};
 
-  // Fonction sécurisée pour convertir string en nombre (float) ou 0 si invalide
-  const parseMontant = (str: string) => {
+const BudgetMensuelScreen = () => {
+  const [salaire, setSalaire] = useState('');
+  const [autresRevenus, setAutresRevenus] = useState('');
+  const [depenses, setDepenses] = useState<Depense[]>([]);
+  const [showSuggestionsFixes, setShowSuggestionsFixes] = useState(false);
+  const [showSuggestionsVariables, setShowSuggestionsVariables] = useState(false);
+
+  const parseMontant = (str: string | number | null | undefined) => {
     if (!str) return 0;
-    const cleaned = str.replace(/[^0-9.,]/g, '').replace(',', '.');
+    const stringValue = String(str);
+    const cleaned = stringValue.replace(/[^0-9.,]/g, '').replace(',', '.');
     const parsed = parseFloat(cleaned);
     return isNaN(parsed) ? 0 : parsed;
   };
 
+  useEffect(() => {
+    const fetchBudget = async () => {
+      const currentUser = getAuth().currentUser;
+      if (!currentUser) return;
+      const ref = doc(db, 'users', currentUser.uid, 'budgets', 'current');
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+        const data = snap.data();
+        setSalaire(String(data.salaire || ''));
+        setAutresRevenus(String(data.autresRevenus || ''));
+        setDepenses(data.depenses || []);
+      }
+    };
+    fetchBudget();
+  }, []);
+
   const totalRevenus = parseMontant(salaire) + parseMontant(autresRevenus);
-
-  const totalDepenses = depenses.reduce(
-    (acc, d) => acc + (d.montant ?? 0),
-    0
-  );
-
+  const totalDepenses = depenses.reduce((acc, d) => acc + (d.montant ?? 0), 0);
   const solde = totalRevenus - totalDepenses;
 
-  // Ajouter une nouvelle dépense vide
   const ajouterDepense = (type: 'Fixe' | 'Variable') => {
-    setDepenses((old) => [
-      ...old,
-      { id: uuidv4(), nom: '', montant: null, type },
-    ]);
+    setDepenses((old) => [...old, { id: uuidv4(), nom: '', montant: null, type }]);
   };
 
-  // Modifier nom ou montant d'une dépense
-  const modifierDepense = (
-    id: string,
-    champ: 'nom' | 'montant',
-    valeur: string
-  ) => {
+  const modifierDepense = (id: string, champ: 'nom' | 'montant', valeur: string) => {
     setDepenses((old) =>
-      old.map((d) => {
-        if (d.id === id) {
-          if (champ === 'nom') {
-            return { ...d, nom: valeur };
-          } else {
-            // nettoyage et conversion montant
-            const montantParsed = parseMontant(valeur);
-            return {
-              ...d,
-              montant: valeur === '' ? null : montantParsed,
-            };
-          }
-        }
-        return d;
-      })
+      old.map((d) =>
+        d.id === id
+          ? champ === 'nom'
+            ? { ...d, nom: valeur }
+            : { ...d, montant: valeur === '' ? null : parseMontant(valeur) }
+          : d
+      )
     );
   };
 
-  // Supprimer une dépense
   const supprimerDepense = (id: string) => {
     setDepenses((old) => old.filter((d) => d.id !== id));
   };
 
-  // Ajouter suggestion avec anti doublon (nom + type)
   const ajouterSuggestion = (depense: Omit<Depense, 'id'>) => {
     const exists = depenses.some(
-      (d) =>
-        d.nom.trim().toLowerCase() === depense.nom.trim().toLowerCase() &&
-        d.type === depense.type
+      (d) => d.nom.trim().toLowerCase() === depense.nom.trim().toLowerCase() && d.type === depense.type
     );
     if (exists) {
       Alert.alert('Info', 'Cette dépense est déjà ajoutée.');
@@ -105,37 +100,39 @@ const BudgetMensuelScreen = () => {
     setDepenses((old) => [...old, { ...depense, id: uuidv4() }]);
   };
 
-  // Validation avant enregistrement
-  const validerBudget = () => {
+  const validerBudget = async () => {
     if (totalRevenus <= 0) {
       Alert.alert('Erreur', 'Veuillez saisir au moins un revenu valide.');
       return;
     }
-    if (
-      depenses.some(
-        (d) =>
-          !d.nom.trim() ||
-          d.montant === null ||
-          d.montant <= 0
-      )
-    ) {
-      Alert.alert(
-        'Erreur',
-        'Veuillez remplir correctement toutes les dépenses (nom et montant > 0).'
-      );
+    if (depenses.some(d => !d.nom.trim() || d.montant === null || d.montant <= 0)) {
+      Alert.alert('Erreur', 'Veuillez remplir correctement toutes les dépenses (nom et montant > 0).');
       return;
     }
-    Alert.alert('Succès', 'Budget enregistré avec succès !');
+
+    try {
+      const currentUser = getAuth().currentUser;
+      if (!currentUser) return;
+
+      const ref = doc(db, 'users', currentUser.uid, 'budgets', 'current');
+      await setDoc(ref, {
+        salaire,
+        autresRevenus,
+        depenses,
+        updatedAt: new Date().toISOString(),
+      });
+
+      Alert.alert('Succès', 'Budget enregistré avec succès !');
+    } catch (error) {
+      console.error('Erreur Firestore :', error);
+      Alert.alert('Erreur', "Impossible d'enregistrer le budget.");
+    }
   };
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.container}
-      keyboardShouldPersistTaps="handled"
-    >
+    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>Mon Budget Mensuel</Text>
 
-      {/* Revenus */}
       <View style={styles.section}>
         <Text style={styles.label}>Salaire mensuel (FCFA)</Text>
         <TextInput
@@ -144,215 +141,129 @@ const BudgetMensuelScreen = () => {
           placeholder="Ex: 250000"
           value={salaire}
           onChangeText={setSalaire}
-          placeholderTextColor="#999"
         />
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.label}>Autres revenus (FCFA)</Text>
+        <Text style={[styles.label, { marginTop: 16 }]}>Autres revenus (FCFA)</Text>
         <TextInput
           style={styles.input}
           keyboardType="numeric"
           placeholder="Ex: 50000"
           value={autresRevenus}
           onChangeText={setAutresRevenus}
-          placeholderTextColor="#999"
         />
       </View>
 
-      {/* Dépenses fixes */}
+      {/* DÉPENSES FIXES */}
       <View style={styles.section}>
         <Text style={styles.subTitle}>Dépenses fixes</Text>
-        {depenses
-          .filter((d) => d.type === 'Fixe')
-          .map((d) => (
-            <View key={d.id} style={styles.depenseRow}>
-              <TextInput
-                style={[styles.input, styles.depenseInputNom]}
-                placeholder="Nom dépense"
-                value={d.nom}
-                onChangeText={(text) => modifierDepense(d.id, 'nom', text)}
-                placeholderTextColor="#aaa"
-              />
-              <TextInput
-                style={[styles.input, styles.depenseInputMontant]}
-                keyboardType="numeric"
-                placeholder="Montant"
-                value={d.montant !== null ? d.montant.toString() : ''}
-                onChangeText={(text) => modifierDepense(d.id, 'montant', text)}
-                placeholderTextColor="#aaa"
-              />
-              <TouchableOpacity
-                onPress={() => supprimerDepense(d.id)}
-                style={styles.deleteBtn}
-                activeOpacity={0.7}
-              >
-                <MaterialIcons name="delete" size={24} color="#e53935" />
-              </TouchableOpacity>
-            </View>
-          ))}
-        <TouchableOpacity
-          onPress={() => ajouterDepense('Fixe')}
-          style={styles.addButton}
-          activeOpacity={0.8}
-        >
-          <MaterialIcons
-            name="add-circle-outline"
-            size={20}
-            color="#00796B"
-          />
-          <Text style={styles.addButtonText}>Ajouter dépense fixe</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.suggestionTitle}>Suggestions fixes :</Text>
-        <View style={styles.suggestionList}>
-          {suggestionsFixes.map((sugg) => (
-            <TouchableOpacity
-              key={sugg.nom}
-              style={styles.suggestionBtn}
-              onPress={() =>
-                ajouterSuggestion({
-                  type: 'Fixe',
-                  nom: sugg.nom,
-                  montant: sugg.montant,
-                })
-              }
-              activeOpacity={0.7}
-            >
-              <Text style={styles.suggestionText}>
-                {`${sugg.nom} - ${sugg.montant.toLocaleString()} FCFA`}
-              </Text>
+        {depenses.filter(d => d.type === 'Fixe').map((d) => (
+          <View key={d.id} style={styles.depenseRow}>
+            <TextInput
+              style={[styles.input, styles.depenseInputNom]}
+              placeholder="Nom"
+              value={d.nom}
+              onChangeText={(text) => modifierDepense(d.id, 'nom', text)}
+            />
+            <TextInput
+              style={[styles.input, styles.depenseInputMontant]}
+              keyboardType="numeric"
+              placeholder="Montant"
+              value={d.montant !== null ? d.montant.toString() : ''}
+              onChangeText={(text) => modifierDepense(d.id, 'montant', text)}
+            />
+            <TouchableOpacity onPress={() => supprimerDepense(d.id)} style={styles.deleteBtn}>
+              <MaterialIcons name="delete" size={22} color="#e53935" />
             </TouchableOpacity>
-          ))}
-        </View>
+          </View>
+        ))}
+        <TouchableOpacity onPress={() => ajouterDepense('Fixe')} style={styles.addButton}>
+          <MaterialIcons name="add" size={20} color="#00796B" />
+          <Text style={styles.addButtonText}>Ajouter</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => setShowSuggestionsFixes(!showSuggestionsFixes)}>
+          <Text style={styles.suggestionToggle}>
+            {showSuggestionsFixes ? 'Masquer' : 'Voir'} suggestions fixes
+          </Text>
+        </TouchableOpacity>
+        {showSuggestionsFixes && (
+          <View style={styles.suggestionList}>
+            {suggestionsFixes.map((sugg) => (
+              <TouchableOpacity
+                key={sugg.nom}
+                style={styles.suggestionBtn}
+                onPress={() =>
+                  ajouterSuggestion({ type: 'Fixe', nom: sugg.nom, montant: sugg.montant })
+                }
+              >
+                <Text style={styles.suggestionText}>
+                  {`${sugg.nom} - ${sugg.montant.toLocaleString()} FCFA`}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </View>
 
-      {/* Dépenses variables */}
+      {/* DÉPENSES VARIABLES */}
       <View style={styles.section}>
         <Text style={styles.subTitle}>Dépenses variables</Text>
-        {depenses
-          .filter((d) => d.type === 'Variable')
-          .map((d) => (
-            <View key={d.id} style={styles.depenseRow}>
-              <TextInput
-                style={[styles.input, styles.depenseInputNom]}
-                placeholder="Nom dépense"
-                value={d.nom}
-                onChangeText={(text) => modifierDepense(d.id, 'nom', text)}
-                placeholderTextColor="#aaa"
-              />
-              <TextInput
-                style={[styles.input, styles.depenseInputMontant]}
-                keyboardType="numeric"
-                placeholder="Montant"
-                value={d.montant !== null ? d.montant.toString() : ''}
-                onChangeText={(text) => modifierDepense(d.id, 'montant', text)}
-                placeholderTextColor="#aaa"
-              />
-              <TouchableOpacity
-                onPress={() => supprimerDepense(d.id)}
-                style={styles.deleteBtn}
-                activeOpacity={0.7}
-              >
-                <MaterialIcons name="delete" size={24} color="#e53935" />
-              </TouchableOpacity>
-            </View>
-          ))}
-        <TouchableOpacity
-          onPress={() => ajouterDepense('Variable')}
-          style={styles.addButton}
-          activeOpacity={0.8}
-        >
-          <MaterialIcons
-            name="add-circle-outline"
-            size={20}
-            color="#00796B"
-          />
-          <Text style={styles.addButtonText}>Ajouter dépense variable</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.suggestionTitle}>Suggestions variables :</Text>
-        <View style={styles.suggestionList}>
-          {suggestionsVariables.map((sugg) => (
-            <TouchableOpacity
-              key={sugg.nom}
-              style={styles.suggestionBtn}
-              onPress={() =>
-                ajouterSuggestion({
-                  type: 'Variable',
-                  nom: sugg.nom,
-                  montant: sugg.montant,
-                })
-              }
-              activeOpacity={0.7}
-            >
-              <Text style={styles.suggestionText}>
-                {`${sugg.nom} - ${sugg.montant.toLocaleString()} FCFA`}
-              </Text>
+        {depenses.filter(d => d.type === 'Variable').map((d) => (
+          <View key={d.id} style={styles.depenseRow}>
+            <TextInput
+              style={[styles.input, styles.depenseInputNom]}
+              placeholder="Nom"
+              value={d.nom}
+              onChangeText={(text) => modifierDepense(d.id, 'nom', text)}
+            />
+            <TextInput
+              style={[styles.input, styles.depenseInputMontant]}
+              keyboardType="numeric"
+              placeholder="Montant"
+              value={d.montant !== null ? d.montant.toString() : ''}
+              onChangeText={(text) => modifierDepense(d.id, 'montant', text)}
+            />
+            <TouchableOpacity onPress={() => supprimerDepense(d.id)} style={styles.deleteBtn}>
+              <MaterialIcons name="delete" size={22} color="#e53935" />
             </TouchableOpacity>
-          ))}
-        </View>
+          </View>
+        ))}
+        <TouchableOpacity onPress={() => ajouterDepense('Variable')} style={styles.addButton}>
+          <MaterialIcons name="add" size={20} color="#00796B" />
+          <Text style={styles.addButtonText}>Ajouter</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => setShowSuggestionsVariables(!showSuggestionsVariables)}>
+          <Text style={styles.suggestionToggle}>
+            {showSuggestionsVariables ? 'Masquer' : 'Voir'} suggestions variables
+          </Text>
+        </TouchableOpacity>
+        {showSuggestionsVariables && (
+          <View style={styles.suggestionList}>
+            {suggestionsVariables.map((sugg) => (
+              <TouchableOpacity
+                key={sugg.nom}
+                style={styles.suggestionBtn}
+                onPress={() =>
+                  ajouterSuggestion({ type: 'Variable', nom: sugg.nom, montant: sugg.montant })
+                }
+              >
+                <Text style={styles.suggestionText}>
+                  {`${sugg.nom} - ${sugg.montant.toLocaleString()} FCFA`}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </View>
 
-      {/* Résumé */}
-      <View style={styles.summaryContainer}>
-        <View style={[styles.summaryCard, { backgroundColor: '#e6f4ea' }]}>
-          <MaterialIcons name="attach-money" size={28} color="#388e3c" />
-          <Text style={[styles.summaryLabel, { color: '#388e3c' }]}>
-            Total revenus
-          </Text>
-          <Text style={[styles.summaryValue, { color: '#2e7d32' }]}>
-            {totalRevenus.toLocaleString()} FCFA
-          </Text>
+      {/* RÉSUMÉ */}
+      {totalRevenus > 0 && (
+        <View style={styles.summaryContainer}>
+          <Text style={styles.summaryLabel}>Revenus : {totalRevenus.toLocaleString()} FCFA</Text>
+          <Text style={styles.summaryLabel}>Dépenses : {totalDepenses.toLocaleString()} FCFA</Text>
+          <Text style={styles.summaryLabel}>Solde : {solde.toLocaleString()} FCFA</Text>
         </View>
+      )}
 
-        <View style={[styles.summaryCard, { backgroundColor: '#fdecea' }]}>
-          <MaterialIcons name="money-off" size={28} color="#d32f2f" />
-          <Text style={[styles.summaryLabel, { color: '#d32f2f' }]}>
-            Total dépenses
-          </Text>
-          <Text style={[styles.summaryValue, { color: '#c62828' }]}>
-            {totalDepenses.toLocaleString()} FCFA
-          </Text>
-        </View>
-
-        <View
-          style={[
-            styles.summaryCard,
-            {
-              backgroundColor: solde >= 0 ? '#e0f2f1' : '#ffebee',
-            },
-          ]}
-        >
-          <MaterialIcons
-            name={solde >= 0 ? 'trending-up' : 'trending-down'}
-            size={28}
-            color={solde >= 0 ? '#00796b' : '#d32f2f'}
-          />
-          <Text
-            style={[
-              styles.summaryLabel,
-              { color: solde >= 0 ? '#00796b' : '#d32f2f' },
-            ]}
-          >
-            Solde restant
-          </Text>
-          <Text
-            style={[
-              styles.summaryValue,
-              { color: solde >= 0 ? '#00796b' : '#d32f2f', fontWeight: 'bold' },
-            ]}
-          >
-            {solde.toLocaleString()} FCFA
-          </Text>
-        </View>
-      </View>
-
-      <TouchableOpacity
-        style={styles.submitBtn}
-        onPress={validerBudget}
-        activeOpacity={0.85}
-      >
+      <TouchableOpacity style={styles.submitBtn} onPress={validerBudget}>
         <Text style={styles.submitText}>Enregistrer le budget</Text>
       </TouchableOpacity>
     </ScrollView>
@@ -362,137 +273,41 @@ const BudgetMensuelScreen = () => {
 export default BudgetMensuelScreen;
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 24,
-    paddingBottom: 80,
-    backgroundColor: '#f9fafb',
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '800',
-    marginBottom: 28,
-    textAlign: 'center',
-    color: '#00695C',
-    fontFamily: 'System',
-  },
-  section: {
-    marginBottom: 28,
-  },
-  label: {
-    fontWeight: '700',
-    marginBottom: 10,
-    fontSize: 17,
-    color: '#004D40',
-  },
-  subTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 14,
-    color: '#00796B',
-  },
+  container: { padding: 24, backgroundColor: '#f9fafb' },
+  title: { fontSize: 24, fontWeight: 'bold', textAlign: 'center', marginBottom: 28, color: '#004D40' },
+  section: { marginBottom: 30 },
+  label: { fontWeight: '600', marginBottom: 10, fontSize: 16 },
+  subTitle: { fontSize: 18, fontWeight: '700', marginBottom: 14, color: '#00796B' },
   input: {
     backgroundColor: '#fff',
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     borderWidth: 1,
     borderColor: '#cfd8dc',
-    fontSize: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-    color: '#263238',
-    fontWeight: '600',
-  },
-  depenseRow: {
-    flexDirection: 'row',
-    marginBottom: 14,
-    alignItems: 'center',
-  },
-  depenseInputNom: {
-    flex: 2,
-  },
-  depenseInputMontant: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  deleteBtn: {
-    marginLeft: 14,
-    padding: 6,
-    borderRadius: 8,
-    backgroundColor: '#ffebee',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#b2dfdb',
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderRadius: 16,
-    marginTop: 8,
-  },
-  addButtonText: {
-    marginLeft: 8,
-    color: '#004D40',
-    fontWeight: '700',
     fontSize: 15,
+    color: '#263238',
+    marginBottom: 10,
   },
-  suggestionTitle: {
-    marginTop: 16,
-    marginBottom: 8,
-    color: '#00796B',
-    fontWeight: '700',
-  },
-  suggestionList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
+  depenseRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  depenseInputNom: { flex: 2 },
+  depenseInputMontant: { flex: 1, marginLeft: 8 },
+  deleteBtn: { marginLeft: 8, backgroundColor: '#ffebee', padding: 6, borderRadius: 6 },
+  addButton: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
+  addButtonText: { marginLeft: 8, fontWeight: '600', color: '#004D40' },
+  suggestionToggle: { color: '#00796B', marginTop: 10, fontWeight: '600' },
+  suggestionList: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 10 },
   suggestionBtn: {
     backgroundColor: '#c8e6c9',
     paddingVertical: 6,
-    paddingHorizontal: 14,
-    marginRight: 8,
-    marginBottom: 10,
-    borderRadius: 16,
-  },
-  suggestionText: {
-    color: '#2e7d32',
-    fontWeight: '700',
-  },
-  summaryContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 40,
-  },
-  summaryCard: {
-    width: '30%',
-    borderRadius: 20,
-    paddingVertical: 20,
     paddingHorizontal: 12,
-    alignItems: 'center',
-  },
-  summaryLabel: {
-    fontSize: 14,
-    marginTop: 4,
+    borderRadius: 14,
+    marginRight: 8,
     marginBottom: 8,
-    fontWeight: '600',
   },
-  summaryValue: {
-    fontSize: 18,
-  },
-  submitBtn: {
-    backgroundColor: '#00796B',
-    paddingVertical: 18,
-    borderRadius: 24,
-  },
-  submitText: {
-    color: 'white',
-    fontWeight: '700',
-    fontSize: 19,
-    textAlign: 'center',
-  },
+  suggestionText: { color: '#2e7d32', fontWeight: '600' },
+  summaryContainer: { padding: 16, backgroundColor: '#e0f2f1', borderRadius: 16, marginBottom: 30 },
+  summaryLabel: { fontSize: 16, fontWeight: '600', color: '#004D40', marginBottom: 6 },
+  submitBtn: { backgroundColor: '#00796B', paddingVertical: 16, borderRadius: 20 },
+  submitText: { color: 'white', textAlign: 'center', fontWeight: 'bold', fontSize: 17 },
 });

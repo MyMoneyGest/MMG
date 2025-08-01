@@ -23,7 +23,7 @@ const PolitiqueConfidentialiteScreen = () => {
       <Text style={styles.sectionTitle}>3. Durée de conservation</Text>
       <Text style={styles.paragraph}>
         Les données sont conservées tant que l’utilisateur utilise l’application. Il peut à tout moment demander la
-        suppression de ses données via l'adresse support.mmgest@gmail.com.
+        suppression de ses données via l'adresse mymoneygest@gmail.com.
       </Text>
 
       <Text style={styles.sectionTitle}>4. Droits des utilisateurs</Text>

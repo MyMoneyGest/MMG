@@ -5,7 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
@@ -25,18 +24,22 @@ type RegisterScreenProp = NativeStackNavigationProp<RootStackParamList, 'Registe
 const RegisterScreen = () => {
   const navigation = useNavigation<RegisterScreenProp>();
   const [accountType, setAccountType] = useState<'personal' | null>(null);
-
   const [loading, setLoading] = useState(false);
   const [secure, setSecure] = useState(true);
 
-  // Personnel uniquement
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState(''); // 👈 Nouveau champ
-
-  // Champs communs
+  const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  // erreurs
+  const [nameError, setNameError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [confirmError, setConfirmError] = useState('');
+  const [generalError, setGeneralError] = useState('');
 
   const validateEmail = (email: string) => {
     const commonDomains = [
@@ -51,23 +54,55 @@ const RegisterScreen = () => {
     return commonDomains.includes(domain) || genericTLD.test(domain);
   };
 
+  const resetErrors = () => {
+    setNameError('');
+    setPhoneError('');
+    setEmailError('');
+    setPasswordError('');
+    setConfirmError('');
+    setGeneralError('');
+  };
+
   const handleRegister = async () => {
-    if (!name || !phone || !email || !password || !confirmPassword) {
-      Alert.alert('Erreur', 'Tous les champs obligatoires doivent être remplis.');
-      return;
+    resetErrors();
+
+    let hasError = false;
+
+    if (!name) {
+      setNameError('Le nom est requis.');
+      hasError = true;
     }
-    if (!validateEmail(email)) {
-      Alert.alert('Email invalide', 'Veuillez entrer un email valide.');
-      return;
+
+    if (!phone) {
+      setPhoneError('Le numéro de téléphone est requis.');
+      hasError = true;
     }
-    if (password.length < 6) {
-      Alert.alert('Mot de passe trop court', 'Minimum 6 caractères.');
-      return;
+
+    if (!email) {
+      setEmailError("L'adresse email est requise.");
+      hasError = true;
+    } else if (!validateEmail(email)) {
+      setEmailError("Format d'email invalide.");
+      hasError = true;
     }
-    if (password !== confirmPassword) {
-      Alert.alert('Erreur', 'Les mots de passe ne correspondent pas.');
-      return;
+
+    if (!password) {
+      setPasswordError('Le mot de passe est requis.');
+      hasError = true;
+    } else if (password.length < 6) {
+      setPasswordError('Minimum 6 caractères.');
+      hasError = true;
     }
+
+    if (!confirmPassword) {
+      setConfirmError('Veuillez confirmer votre mot de passe.');
+      hasError = true;
+    } else if (password !== confirmPassword) {
+      setConfirmError('Les mots de passe ne correspondent pas.');
+      hasError = true;
+    }
+
+    if (hasError) return;
 
     setLoading(true);
 
@@ -83,13 +118,10 @@ const RegisterScreen = () => {
         type: 'personal',
         createdAt: new Date(),
         name,
-        phone,
+        phone: '+241' + phone,
       };
 
-      // ✅ Écriture dans users
       await setDoc(doc(db, 'users', user.uid), userData);
-
-      // ✅ Écriture dans phoneDirectory
       await setDoc(doc(db, 'phoneDirectory', user.uid), {
         uid: user.uid,
         phone,
@@ -98,13 +130,21 @@ const RegisterScreen = () => {
         createdAt: new Date(),
       });
 
-      Alert.alert('Succès', 'Compte créé avec succès.');
       navigation.navigate('Login');
     } catch (error: any) {
-      if (error.code === 'auth/email-already-in-use') {
-        Alert.alert('Erreur', 'Cet email est déjà utilisé.');
-      } else {
-        Alert.alert('Erreur', error.message);
+      console.warn('Erreur Firebase Register:', error.code);
+      switch (error.code) {
+        case 'auth/email-already-in-use':
+          setEmailError('Cet email est déjà utilisé.');
+          break;
+        case 'auth/invalid-email':
+          setEmailError("L'adresse email est invalide.");
+          break;
+        case 'auth/weak-password':
+          setPasswordError('Mot de passe trop faible (minimum 6 caractères).');
+          break;
+        default:
+          setGeneralError('Une erreur est survenue. Veuillez réessayer.');
       }
     } finally {
       setLoading(false);
@@ -121,14 +161,12 @@ const RegisterScreen = () => {
             <TouchableOpacity
               style={styles.accountTypeButton}
               onPress={() => setAccountType('personal')}
-              activeOpacity={0.8}
             >
               <Text style={styles.accountTypeText}>Compte Personnel</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.accountTypeButton, styles.entrepriseButton]}
               onPress={() => navigation.navigate('RegisterCompteProScreen')}
-              activeOpacity={0.8}
             >
               <Text style={styles.accountTypeText}>Compte Entreprise</Text>
             </TouchableOpacity>
@@ -137,54 +175,53 @@ const RegisterScreen = () => {
       ) : (
         <>
           <Text style={styles.title}>Compte Personnel</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Nom complet"
-            value={name}
-            onChangeText={setName}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Numéro de téléphone"
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Mot de passe"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={secure}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Confirmer mot de passe"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry={secure}
-          />
+
+          <TextInput style={styles.input} placeholder="Nom complet" value={name} onChangeText={setName} />
+          {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
+
+          <View style={styles.phoneContainer}>
+  <Text style={styles.prefix}>+241</Text>
+  <TextInput
+    style={styles.phoneInput}
+    placeholder="ex: 060000000"
+    keyboardType="phone-pad"
+    value={phone}
+    onChangeText={(text) => {
+      // Optionnel : empêcher les espaces et lettres
+      const cleaned = text.replace(/[^\d]/g, '');
+      setPhone(cleaned);
+    }}
+    maxLength={9}
+  />
+</View>
+{phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
+
+          {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
+
+          <TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+          {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+
+          <TextInput style={styles.input} placeholder="Mot de passe" value={password} onChangeText={setPassword} secureTextEntry={secure} />
+          {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
+
+          <TextInput style={styles.input} placeholder="Confirmer mot de passe" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry={secure} />
+          {confirmError ? <Text style={styles.errorText}>{confirmError}</Text> : null}
+
           <TouchableOpacity onPress={() => setSecure(!secure)} style={{ alignSelf: 'flex-end', marginBottom: 15 }}>
             <Text style={styles.toggle}>{secure ? '👁️‍🗨️' : '🙈'}</Text>
           </TouchableOpacity>
 
+          {generalError ? <Text style={styles.errorText}>{generalError}</Text> : null}
+
           {loading ? (
             <ActivityIndicator size="large" color="#00796B" />
           ) : (
-            <TouchableOpacity style={styles.button} onPress={handleRegister} activeOpacity={0.8}>
+            <TouchableOpacity style={styles.button} onPress={handleRegister}>
               <Text style={styles.buttonText}>Créer un compte</Text>
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity onPress={() => setAccountType(null)} style={styles.backButton} activeOpacity={0.7}>
+          <TouchableOpacity onPress={() => setAccountType(null)} style={styles.backButton}>
             <Text style={styles.backButtonText}>← Retour au choix</Text>
           </TouchableOpacity>
         </>
@@ -202,12 +239,41 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     justifyContent: 'center',
   },
+    errorText: {
+    color: '#D32F2F',
+    fontSize: 14,
+    marginTop: -10,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
   title: {
     fontSize: 26,
     fontWeight: 'bold',
     color: '#00796B',
     textAlign: 'center',
     marginBottom: 16,
+  },
+    phoneContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f9f9f9',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 12,
+    marginBottom: 15,
+    paddingHorizontal: 12,
+  },
+  prefix: {
+    fontSize: 16,
+    color: '#00796B',
+    fontWeight: '600',
+    marginRight: 6,
+  },
+  phoneInput: {
+    flex: 1,
+    fontSize: 16,
+    paddingVertical: 14,
+    color: '#333',
   },
   subtitle: {
     fontSize: 18,

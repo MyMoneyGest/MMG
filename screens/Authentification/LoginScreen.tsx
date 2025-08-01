@@ -5,7 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   Image,
   KeyboardAvoidingView,
@@ -32,54 +31,97 @@ const LoginScreen = () => {
   const [secure, setSecure] = useState(true);
   const [loading, setLoading] = useState(false);
 
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [generalError, setGeneralError] = useState('');
+
   const validateEmail = (email: string) => /^\S+@\S+\.\S+$/.test(email);
 
+  const resetErrors = () => {
+    setEmailError('');
+    setPasswordError('');
+    setGeneralError('');
+  };
+
   const handleLogin = async () => {
+    resetErrors();
+
     if (!email || !password) {
-      Alert.alert('Erreur', 'Tous les champs sont obligatoires.');
+      if (!email) setEmailError("L'adresse email est requise.");
+      if (!password) setPasswordError('Le mot de passe est requis.');
       return;
     }
 
     if (!validateEmail(email)) {
-      Alert.alert('Email invalide', 'Veuillez entrer un email valide.');
+      setEmailError("Format d'email invalide.");
       return;
     }
 
     setLoading(true);
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const uid = userCredential.user.uid;
+  const userCredential = await signInWithEmailAndPassword(auth, email, password);
+  const uid = userCredential.user.uid;
 
-      // Récupérer le doc utilisateur dans Firestore
-      const userDoc = await getDoc(doc(db, 'users', uid));
-      const userData = userDoc.data();
+  const userDoc = await getDoc(doc(db, 'users', uid));
+  const userData = userDoc.data();
 
-      if (userData?.entreprise) {
-        // Compte entreprise : rediriger vers GestionEntrepriseScreen
-        navigation.replace('GestionEntrepriseScreen');
-      } else {
-        // Compte personnel : rediriger vers HomeScreen
-        navigation.replace('HomeScreen');
-      }
-    } catch (error: any) {
-      Alert.alert('Erreur de connexion', error.message);
-    } finally {
-      setLoading(false);
-    }
+  if (userData?.entreprise) {
+    navigation.replace('GestionEntrepriseScreen');
+  } else {
+    navigation.replace('HomeScreen');
+  }
+} catch (error: any) {
+  console.warn('Erreur Firebase:', error.code);
+
+  switch (error.code) {
+    case 'auth/invalid-email':
+      setEmailError("L'adresse email est invalide.");
+      break;
+    case 'auth/user-not-found':
+      setEmailError("Aucun compte n'est associé à cette adresse.");
+      break;
+    case 'auth/wrong-password':
+      setPasswordError('Mot de passe incorrect.');
+      break;
+    case 'auth/invalid-credential':
+      setPasswordError('Adresse email ou mot de passe incorrect.');
+      break;
+    case 'auth/too-many-requests':
+      setGeneralError('Trop de tentatives. Réessayez plus tard.');
+      break;
+    default:
+      setGeneralError("Une erreur inconnue est survenue. Code : " + error.code);
+      break;
+  }
+  } finally {
+    setLoading(false);
+  }
   };
 
   const handleForgotPassword = async () => {
+    resetErrors();
+
     if (!email) {
-      Alert.alert('Erreur', 'Veuillez entrer votre adresse email.');
+      setEmailError("Veuillez entrer votre adresse email.");
       return;
     }
 
     try {
       await sendPasswordResetEmail(auth, email);
-      Alert.alert('Email envoyé', 'Consultez votre boîte mail pour réinitialiser votre mot de passe.');
+      setGeneralError("Email de réinitialisation envoyé. Vérifiez votre boîte mail.");
     } catch (error: any) {
-      Alert.alert('Erreur', error.message);
+      switch (error.code) {
+        case 'auth/invalid-email':
+          setEmailError("L'adresse email est invalide.");
+          break;
+        case 'auth/user-not-found':
+          setEmailError("Aucun compte n'est associé à cette adresse.");
+          break;
+        default:
+          setGeneralError("Impossible d’envoyer l’email. Réessayez.");
+          console.warn('Erreur Firebase (reset):', error.code);
+      }
     }
   };
 
@@ -90,17 +132,13 @@ const LoginScreen = () => {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.innerContainer}
         >
-          <Image
-            source={require('../../assets/logo_mymoneygest.jpg')}
-            style={styles.logo}
-          />
-
+          <Image source={require('../../assets/logo_mymoneygest.jpg')} style={styles.logo} />
           <Text style={styles.title}>Bienvenue sur MyMoneyGest</Text>
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Adresse email</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, emailError ? styles.inputError : null]}
               placeholder="ex: utilisateur@email.com"
               keyboardType="email-address"
               value={email}
@@ -109,14 +147,13 @@ const LoginScreen = () => {
               autoCorrect={false}
               textContentType="emailAddress"
               returnKeyType="next"
-              accessible
-              accessibilityLabel="Adresse email"
             />
+            {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Mot de passe</Text>
-            <View style={styles.passwordContainer}>
+            <View style={[styles.passwordContainer, passwordError ? styles.inputError : null]}>
               <TextInput
                 style={styles.passwordInput}
                 placeholder="••••••••"
@@ -124,39 +161,36 @@ const LoginScreen = () => {
                 value={password}
                 onChangeText={setPassword}
                 returnKeyType="done"
-                accessible
-                accessibilityLabel="Mot de passe"
               />
               <TouchableOpacity onPress={() => setSecure(!secure)}>
-                <Icon
-                  name={secure ? 'eye-outline' : 'eye-off-outline'}
-                  size={24}
-                  color="#00796B"
-                />
+                <Icon name={secure ? 'eye-outline' : 'eye-off-outline'} size={24} color="#00796B" />
               </TouchableOpacity>
             </View>
+            {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
           </View>
 
-          <TouchableOpacity onPress={handleForgotPassword} accessibilityRole="button">
+          <TouchableOpacity onPress={handleForgotPassword}>
             <Text style={styles.forgot}>Mot de passe oublié ?</Text>
           </TouchableOpacity>
+
+          {generalError ? <Text style={styles.errorText}>{generalError}</Text> : null}
 
           {loading ? (
             <ActivityIndicator size="large" color="#004D40" style={{ marginVertical: 20 }} />
           ) : (
-            <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading} accessibilityRole="button">
+            <TouchableOpacity style={styles.button} onPress={handleLogin}>
               <Text style={styles.buttonText}>Se connecter</Text>
             </TouchableOpacity>
           )}
 
           <View style={styles.signupContainer}>
             <Text style={styles.signupText}>Pas encore de compte ? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Register')} accessibilityRole="button">
+            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
               <Text style={styles.signupLink}>Créer un compte</Text>
-            </TouchableOpacity>
+           </TouchableOpacity>
           </View>
           <View style={styles.legalContainer}>
-            <TouchableOpacity onPress={() => navigation.navigate('MentionsLegales')} accessibilityRole="link">
+            <TouchableOpacity onPress={() => navigation.navigate('MentionsLegales')}>
               <Text style={styles.legalText}>Mentions légales</Text>
             </TouchableOpacity>
           </View>
@@ -172,6 +206,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#ffffff',
+  },
+    inputError: {
+    borderColor: '#D32F2F',
   },
   innerContainer: {
     flex: 1,
@@ -281,7 +318,7 @@ const styles = StyleSheet.create({
 
   legalContainer: {
   alignItems: 'center',
-  marginTop: 24,
+  marginTop: 5,
   },
   legalText: {
     fontSize: 14,

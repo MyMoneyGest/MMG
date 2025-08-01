@@ -19,13 +19,14 @@ import {
   doc,
   deleteDoc,
   updateDoc,
+  getDocs,
+  where,
 } from 'firebase/firestore';
 import { db } from '../../services/firebaseConfig';
-import { RootStackParamList } from '../../navigation/AppNavigator'
+import { RootStackParamList } from '../../navigation/AppNavigator';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
-import { getDocs, where } from 'firebase/firestore';
-import { getDoc } from 'firebase/firestore';
+import PhoneInput from '../../constants/PhoneInput';
 
 const AirtelBeneficiariesScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -36,6 +37,8 @@ const AirtelBeneficiariesScreen = () => {
   const [phone, setPhone] = useState('');
   const [operator, setOperator] = useState('Airtel');
   const [editId, setEditId] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -51,52 +54,55 @@ const AirtelBeneficiariesScreen = () => {
     return () => unsubscribe();
   }, [user]);
 
-const handleAddOrUpdate = async () => {
-  if (!name || !phone) {
-    Alert.alert('Erreur', 'Tous les champs sont obligatoires.');
-    return;
-  }
+  const handleAddOrUpdate = async () => {
+    setPhoneError('');
 
-  try {
-    // Étape 1 : récupérer tous les utilisateurs
-    const phoneQuery = query(collection(db, 'phoneDirectory'), where('phone', '==', phone));
-    const snap = await getDocs(phoneQuery);
-
-    let linkedUid: string | null = null;
-    if (!snap.empty) {
-      linkedUid = snap.docs[0].data().uid;
+    if (!name || !phone) {
+      if (!phone) setPhoneError('Le numéro est requis.');
+      return;
+    }
+    if (!/^\d{9}$/.test(phone)) {
+      setPhoneError('Numéro invalide. 9 chiffres après +241 attendus.');
+      return;
     }
 
+    try {
+      const phoneQuery = query(collection(db, 'phoneDirectory'), where('phone', '==', '+241' + phone));
+      const snap = await getDocs(phoneQuery);
 
-    const payload = {
-      name,
-      phone,
-      operator,
-      linkedUid, // 🔗 UID si trouvé, null sinon
-      createdAt: new Date(),
-    };
+      let linkedUid: string | null = null;
+      if (!snap.empty) {
+        linkedUid = snap.docs[0].data().uid;
+      }
 
-    if (editId) {
-      const ref = doc(db, 'users', user!.uid, 'beneficiaries', editId);
-      await updateDoc(ref, payload);
-    } else {
-      await addDoc(collection(db, 'users', user!.uid, 'beneficiaries'), payload);
+      const payload = {
+        name,
+        phone: '+241' + phone,
+        operator,
+        linkedUid,
+        createdAt: new Date(),
+      };
+
+      if (editId) {
+        const ref = doc(db, 'users', user!.uid, 'beneficiaries', editId);
+        await updateDoc(ref, payload);
+      } else {
+        await addDoc(collection(db, 'users', user!.uid, 'beneficiaries'), payload);
+      }
+
+      setName('');
+      setPhone('');
+      setOperator('Airtel');
+      setEditId(null);
+      setModalVisible(false);
+      setSuccessMessage('Bénéficiaire mis à jour avec succès.');
+
+      navigation.navigate('AirtelBeneficiairesScreen');
+    } catch (e) {
+      console.error(e);
+      Alert.alert('Erreur', `Impossible d'${editId ? 'mettre à jour' : 'ajouter'} ce bénéficiaire.`);
     }
-
-    setName('');
-    setPhone('');
-    setOperator('Airtel');
-    setEditId(null);
-    setModalVisible(false);
-
-    Alert.alert('Succès', 'Bénéficiaire mis à jour avec succès.');
-    navigation.navigate('AirtelBeneficiairesScreen');
-  } catch (e) {
-    console.error(e);
-    Alert.alert('Erreur', `Impossible d'${editId ? 'mettre à jour' : 'ajouter'} ce bénéficiaire.`);
-  }
-};
-
+  };
 
   const handleDelete = async (id: string) => {
     try {
@@ -106,8 +112,6 @@ const handleAddOrUpdate = async () => {
       Alert.alert('Erreur', 'Impossible de supprimer.');
     }
   };
-  
-  const [successMessage, setSuccessMessage] = useState('');
 
   const renderItem = ({ item }: { item: any }) => (
     <View style={styles.beneficiaryItem}>
@@ -115,7 +119,6 @@ const handleAddOrUpdate = async () => {
         <Text style={styles.name}>{item.name}</Text>
         <Text>{item.phone}</Text>
         <Text style={styles.operator}>{item.operator}</Text>
-
         {item.linkedUid ? (
           <Text style={styles.badgeMMG}>✅ Utilisateur MyMoneyGest</Text>
         ) : (
@@ -124,7 +127,7 @@ const handleAddOrUpdate = async () => {
 
         <TouchableOpacity onPress={() => {
           setName(item.name);
-          setPhone(item.phone);
+          setPhone(item.phone.replace('+241', ''));
           setOperator(item.operator || 'Airtel');
           setEditId(item.id);
           setModalVisible(true);
@@ -149,7 +152,6 @@ const handleAddOrUpdate = async () => {
         >
           <Text style={styles.delete}>Supprimer</Text>
         </TouchableOpacity>
-
       </View>
     </View>
   );
@@ -179,11 +181,11 @@ const handleAddOrUpdate = async () => {
       <Modal visible={modalVisible} transparent animationType="slide">
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-              {successMessage !== '' && (
-                <Text style={{ color: '#388E3C', marginBottom: 10, textAlign: 'center', fontWeight: '600' }}>
-                  {successMessage}
-                </Text>
-              )}
+            {successMessage !== '' && (
+              <Text style={{ color: '#388E3C', marginBottom: 10, textAlign: 'center', fontWeight: '600' }}>
+                {successMessage}
+              </Text>
+            )}
             <Text style={styles.modalTitle}>{editId ? 'Modifier le bénéficiaire' : 'Ajouter un bénéficiaire'}</Text>
             <TextInput
               placeholder="Nom complet"
@@ -191,12 +193,10 @@ const handleAddOrUpdate = async () => {
               onChangeText={setName}
               style={styles.input}
             />
-            <TextInput
-              placeholder="Numéro de téléphone"
+            <PhoneInput
               value={phone}
               onChangeText={setPhone}
-              keyboardType="phone-pad"
-              style={styles.input}
+              error={phoneError}
             />
             <TextInput
               placeholder="Opérateur (Airtel, Moov...)"
@@ -206,7 +206,7 @@ const handleAddOrUpdate = async () => {
             />
             <TouchableOpacity style={styles.button} onPress={handleAddOrUpdate}>
               <Text style={styles.buttonText}>{editId ? 'Mettre à jour' : 'Ajouter'}</Text>
-           </TouchableOpacity>
+            </TouchableOpacity>
             <TouchableOpacity
               style={[styles.button, { backgroundColor: '#B71C1C' }]}
               onPress={() => {
@@ -272,14 +272,12 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   buttonText: { color: '#fff', fontWeight: 'bold' },
-
   badgeMMG: {
     marginTop: 4,
     color: '#388E3C',
     fontWeight: '600',
     fontSize: 13,
   },
-
   badgeNonMMG: {
     marginTop: 4,
     color: '#999',

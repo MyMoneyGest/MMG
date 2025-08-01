@@ -62,9 +62,9 @@ const AccountsScreen = () => {
 
         <TouchableOpacity
           style={styles.button}
-          onPress={() => navigation.navigate('Libertis')}
+          onPress={() => accessFeature('Libertis')}
         >
-          <Text style={styles.buttonText}>Libertis</Text>
+          <Text style={styles.buttonText}>Moov Money</Text>
         </TouchableOpacity>
       </SafeAreaView>
     </LinearGradient>

@@ -1,18 +1,18 @@
 // EntrepriseRegisterScreen.tsx
-import React, { useState } from 'react'; 
+import React, { useState } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/AppNavigator';
+import PhoneInput from '../../constants/PhoneInput';
 
 import {
   createUserWithEmailAndPassword,
@@ -52,10 +52,12 @@ const EntrepriseRegisterScreen = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
+  // erreurs
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
+  const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+  const resetErrors = () => setErrors({});
 
   const createEntrepriseUser = async (
     user: any,
@@ -65,20 +67,18 @@ const EntrepriseRegisterScreen = () => {
     const userDoc = {
       uid: user.uid,
       type: 'entreprise',
-      entrepriseId: user.uid, // ✅ Clé nécessaire
+      entrepriseId: user.uid,
       createdAt: serverTimestamp(),
       entreprise: entrepriseData,
       dirigeant: managerData,
     };
 
     await setDoc(doc(db, 'users', user.uid), userDoc);
-
     await setDoc(doc(db, 'entreprises', user.uid), {
       ...entrepriseData,
       createdAt: serverTimestamp(),
       createdBy: user.uid,
     });
-
     await setDoc(doc(db, 'entreprises', user.uid, 'managers', user.uid), {
       ...managerData,
       createdAt: serverTimestamp(),
@@ -117,32 +117,29 @@ const EntrepriseRegisterScreen = () => {
   };
 
   const handleRegister = async () => {
-    if (
-      !entrepriseName || !rccm || !nif || !legalForm ||
-      !sector || !address || !phone || !managerName ||
-      !managerRole || !managerEmail || !password || !confirmPassword
-    ) {
-      Alert.alert('Erreur', 'Tous les champs doivent être remplis.');
-      return;
-    }
+    resetErrors();
+    const newErrors: { [key: string]: string } = {};
 
-    if (!validateEmail(managerEmail)) {
-      Alert.alert('Email invalide', 'Utilisez un email professionnel valide.');
-      return;
-    }
+    if (!entrepriseName) newErrors.entrepriseName = 'Champ requis.';
+    if (!rccm) newErrors.rccm = 'Champ requis.';
+    else if (!/^\d{14,}$/.test(rccm)) newErrors.rccm = 'Doit contenir au moins 14 chiffres.';
+    if (!nif) newErrors.nif = 'Champ requis.';
+    if (!legalForm) newErrors.legalForm = 'Champ requis.';
+    if (!sector) newErrors.sector = 'Champ requis.';
+    if (!address) newErrors.address = 'Champ requis.';
+    if (!phone) newErrors.phone = 'Champ requis.';
 
-    if (password.length < 6) {
-      Alert.alert('Mot de passe trop court', 'Minimum 6 caractères.');
-      return;
-    }
+    if (!managerName) newErrors.managerName = 'Champ requis.';
+    if (!managerRole) newErrors.managerRole = 'Champ requis.';
+    if (!managerEmail) newErrors.managerEmail = 'Champ requis.';
+    else if (!validateEmail(managerEmail)) newErrors.managerEmail = 'Email invalide.';
+    if (!password) newErrors.password = 'Champ requis.';
+    else if (password.length < 6) newErrors.password = 'Minimum 6 caractères.';
+    if (!confirmPassword) newErrors.confirmPassword = 'Champ requis.';
+    else if (password !== confirmPassword) newErrors.confirmPassword = 'Les mots de passe ne correspondent pas.';
 
-    if (password !== confirmPassword) {
-      Alert.alert('Erreur', 'Les mots de passe ne correspondent pas.');
-      return;
-    }
-
-    if (!/^\d{14,}$/.test(rccm)) {
-      Alert.alert('Erreur RCCM', 'Le numéro RCCM doit contenir au moins 14 chiffres.');
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
 
@@ -160,18 +157,17 @@ const EntrepriseRegisterScreen = () => {
         formeJuridique: legalForm,
         secteur: sector,
         adresse: address,
-        telephone: phone,
+        telephone: '+241' + phone,
       };
 
       const managerData = {
         nom: managerName,
         fonction: managerRole,
         email: managerEmail,
-        telephone: phone,
+        telephone: '+241' + phone,
       };
 
       await createEntrepriseUser(user, entrepriseData, managerData);
-
       await updateBalanceAndAddTransaction(phone, 0, {
         reference: 'inscription',
         type: 'initial',
@@ -180,48 +176,76 @@ const EntrepriseRegisterScreen = () => {
         status: 'success',
       });
 
-      Alert.alert('Succès', 'Compte entreprise créé avec succès.');
-      navigation.replace('GestionEntrepriseScreen'); // ✅ navigation directe vers écran entreprise
-
+      navigation.replace('GestionEntrepriseScreen');
     } catch (error: any) {
+      console.warn('Erreur Firebase:', error.code);
       if (error.code === 'auth/email-already-in-use') {
-        Alert.alert('Erreur', 'Cet email est déjà utilisé.');
+        setErrors({ managerEmail: 'Cet email est déjà utilisé.' });
+      } else if (error.code === 'auth/invalid-email') {
+        setErrors({ managerEmail: 'Adresse email invalide.' });
+      } else if (error.code === 'auth/weak-password') {
+        setErrors({ password: 'Mot de passe trop faible.' });
       } else {
-        Alert.alert('Erreur', error.message || 'Une erreur est survenue.');
+        setErrors({ general: 'Une erreur est survenue. Veuillez réessayer.' });
       }
     } finally {
       setLoading(false);
     }
   };
 
+  const renderInput = (
+    label: string,
+    value: string,
+    onChangeText: (val: string) => void,
+    errorKey: string,
+    props: any = {}
+  ) => (
+    <>
+      <TextInput
+        style={styles.input}
+        placeholder={label}
+        value={value}
+        onChangeText={onChangeText}
+        {...props}
+      />
+      {errors[errorKey] && <Text style={styles.errorText}>{errors[errorKey]}</Text>}
+    </>
+  );
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Inscription Entreprise</Text>
 
-      {/* Champs entreprise */}
-      <TextInput style={styles.input} placeholder="Raison sociale" value={entrepriseName} onChangeText={setEntrepriseName} />
-      <TextInput style={styles.input} placeholder="Numéro RCCM (14 chiffres min.)" value={rccm} onChangeText={setRccm} keyboardType="number-pad" />
-      <TextInput style={styles.input} placeholder="Numéro NIF" value={nif} onChangeText={setNif} />
-      <TextInput style={styles.input} placeholder="Forme juridique" value={legalForm} onChangeText={setLegalForm} />
-      <TextInput style={styles.input} placeholder="Secteur d'activité" value={sector} onChangeText={setSector} />
-      <TextInput style={styles.input} placeholder="Adresse du siège" value={address} onChangeText={setAddress} />
-      <TextInput style={styles.input} placeholder="Téléphone professionnel" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+      {renderInput('Raison sociale', entrepriseName, setEntrepriseName, 'entrepriseName')}
+      {renderInput('Numéro RCCM (14 chiffres min.)', rccm, setRccm, 'rccm', { keyboardType: 'number-pad' })}
+      {renderInput('Numéro NIF', nif, setNif, 'nif')}
+      {renderInput('Forme juridique', legalForm, setLegalForm, 'legalForm')}
+      {renderInput("Secteur d'activité", sector, setSector, 'sector')}
+      {renderInput('Adresse du siège', address, setAddress, 'address')}
+      <PhoneInput
+        value={phone}
+        onChangeText={setPhone}
+        error={errors.phone}
+      />
 
       <Text style={styles.sectionTitle}>Informations du dirigeant</Text>
-      <TextInput style={styles.input} placeholder="Nom et prénom" value={managerName} onChangeText={setManagerName} />
-      <TextInput style={styles.input} placeholder="Fonction" value={managerRole} onChangeText={setManagerRole} />
-      <TextInput style={styles.input} placeholder="Email" value={managerEmail} onChangeText={setManagerEmail} autoCapitalize="none" keyboardType="email-address" />
-      <TextInput style={styles.input} placeholder="Mot de passe" value={password} onChangeText={setPassword} secureTextEntry={secure} />
-      <TextInput style={styles.input} placeholder="Confirmer mot de passe" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry={secure} />
+
+      {renderInput('Nom et prénom', managerName, setManagerName, 'managerName')}
+      {renderInput('Fonction', managerRole, setManagerRole, 'managerRole')}
+      {renderInput('Email', managerEmail, setManagerEmail, 'managerEmail', { keyboardType: 'email-address', autoCapitalize: 'none' })}
+      {renderInput('Mot de passe', password, setPassword, 'password', { secureTextEntry: secure })}
+      {renderInput('Confirmer mot de passe', confirmPassword, setConfirmPassword, 'confirmPassword', { secureTextEntry: secure })}
 
       <TouchableOpacity onPress={() => setSecure(!secure)}>
         <Text style={styles.toggle}>{secure ? '👁️‍🗨️' : '🙈'}</Text>
       </TouchableOpacity>
 
+      {errors.general && <Text style={styles.errorText}>{errors.general}</Text>}
+
       {loading ? (
         <ActivityIndicator size="large" color="#00796B" />
       ) : (
-        <TouchableOpacity style={styles.button} onPress={handleRegister} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.button} onPress={handleRegister}>
           <Text style={styles.buttonText}>Créer le compte</Text>
         </TouchableOpacity>
       )}
@@ -275,5 +299,12 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     marginBottom: 10,
     marginRight: 10,
+  },
+    errorText: {
+    color: '#D32F2F',
+    fontSize: 14,
+    marginTop: -10,
+    marginBottom: 8,
+    marginLeft: 4,
   },
 });

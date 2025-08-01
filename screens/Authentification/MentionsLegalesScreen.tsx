@@ -19,7 +19,7 @@ const MentionsLegalesScreen = () => {
       </Text>
 
       <Text style={styles.sectionTitle}>Contact</Text>
-      <Text style={styles.paragraph}>Email : support.mmgest@gmail.com</Text>
+      <Text style={styles.paragraph}>Email : mymoneygest@gmail.com</Text>
 
       <Text style={styles.sectionTitle}>Statut</Text>
       <Text style={styles.paragraph}>
@@ -35,7 +35,7 @@ const MentionsLegalesScreen = () => {
       <Text style={styles.sectionTitle}>Responsabilité</Text>
       <Text style={styles.paragraph}>
         L’éditeur ne saurait être tenu responsable des conséquences liées à l’usage de l’application. Aucune transaction
-        réelle n’est effectuée via MyMoneyGest.
+        réelle n’est effectuée via MyMoneyGest(MMG).
       </Text>
 
       <Text style={styles.sectionTitle}>Données personnelles</Text>

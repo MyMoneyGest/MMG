@@ -1,4 +1,3 @@
-//LinkAirtelScreen
 import React, { useState } from 'react';
 import {
   View,
@@ -6,39 +5,50 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { auth, db } from '../../services/firebaseConfig';
 import { doc, setDoc } from 'firebase/firestore';
+import PhoneInput from '../../constants/PhoneInput'; // ✅ Utilisation du composant personnalisé
 
 const LinkAirtelScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [phone, setPhone] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const [codeSent, setCodeSent] = useState(false);
   const [generatedCode, setGeneratedCode] = useState('');
   const [enteredCode, setEnteredCode] = useState('');
+  const [codeError, setCodeError] = useState('');
 
   const sendFakeCode = () => {
-    if (!phone || !phone.startsWith('+241') || phone.length < 10) {
-      Alert.alert('Erreur', 'Veuillez entrer un numéro valide au format +241XXXXXXXX');
+    setPhoneError('');
+    setCodeError('');
+
+    if (!phone || phone.length !== 9 || !/^\d{9}$/.test(phone)) {
+      setPhoneError('Veuillez entrer un numéro valide (9 chiffres après +241).');
       return;
     }
 
     const code = Math.floor(100000 + Math.random() * 900000).toString(); // 6 chiffres
     setGeneratedCode(code);
     setCodeSent(true);
-    Alert.alert('Code envoyé', `Un code fictif a été envoyé : ${code}`); // Pour test
+    alert(`Code fictif envoyé,  Notez le !  : ${code}`); // Pour test uniquement
   };
 
   const validateCode = async () => {
-  if (enteredCode === generatedCode) {
+    setCodeError('');
+
+    if (enteredCode !== generatedCode) {
+      setCodeError('Code incorrect. Veuillez réessayer.');
+      return;
+    }
+
     try {
       const currentUser = auth.currentUser;
       if (!currentUser) {
-        Alert.alert('Erreur', 'Utilisateur non authentifié.');
+        setCodeError('Utilisateur non authentifié.');
         return;
       }
 
@@ -47,40 +57,32 @@ const LinkAirtelScreen = () => {
 
       await setDoc(linkedRef, {
         uid,
-        phoneNumber: phone,
-        airtelBalance: 22500, // valeur fictive pour le test
+        phoneNumber: '+241' + phone,
+        airtelBalance: 22500,
         lastUpdated: new Date().toISOString(),
         transactions: [
           { id: 't1', type: 'Réception', amount: 10000, date: '2025-06-12' },
-          { id: 't2', type: 'Envoi', amount: -5000, date: '2025-06-11' }
-        ]
+          { id: 't2', type: 'Envoi', amount: -5000, date: '2025-06-11' },
+        ],
       });
 
-      Alert.alert('Succès', 'Votre compte Airtel Money est désormais lié.');
       navigation.navigate('AirtelMoney');
     } catch (error) {
       console.error('Erreur Firestore :', error);
-      Alert.alert('Erreur', 'Impossible de lier le compte Airtel.');
+      setCodeError('Erreur lors de la liaison. Veuillez réessayer.');
     }
-  } else {
-    Alert.alert('Erreur', 'Code incorrect. Veuillez réessayer.');
-  }
-};
-
+  };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Lier votre compte Airtel</Text>
-      
-      <TextInput
-        style={styles.input}
-        placeholder="+241XXXXXXXX"
-        keyboardType="phone-pad"
+
+      <PhoneInput
         value={phone}
         onChangeText={setPhone}
-        editable={!codeSent}
+        error={phoneError}
       />
-      
+
       {!codeSent && (
         <TouchableOpacity style={styles.button} onPress={sendFakeCode}>
           <Text style={styles.buttonText}>Recevoir un code</Text>
@@ -90,12 +92,13 @@ const LinkAirtelScreen = () => {
       {codeSent && (
         <>
           <TextInput
-            style={styles.input}
+            style={[styles.input, codeError ? styles.inputError : null]}
             placeholder="Entrez le code reçu"
             keyboardType="numeric"
             value={enteredCode}
             onChangeText={setEnteredCode}
           />
+          {codeError ? <Text style={styles.errorText}>{codeError}</Text> : null}
           <TouchableOpacity style={styles.button} onPress={validateCode}>
             <Text style={styles.buttonText}>Valider</Text>
           </TouchableOpacity>
@@ -110,13 +113,29 @@ export default LinkAirtelScreen;
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, justifyContent: 'center', backgroundColor: '#f5f5f5' },
   title: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
-  input: { borderBottomWidth: 1, marginBottom: 20, paddingVertical: 8 },
+  input: {
+    borderBottomWidth: 1,
+    marginBottom: 10,
+    paddingVertical: 8,
+    fontSize: 16,
+  },
+  inputError: {
+    borderBottomColor: '#D32F2F',
+    borderBottomWidth: 2,
+  },
   button: {
     backgroundColor: '#00796B',
     padding: 15,
     borderRadius: 8,
     alignItems: 'center',
-    marginBottom: 20,
+    marginTop: 10,
   },
   buttonText: { color: '#fff', fontWeight: 'bold' },
+  errorText: {
+    color: '#D32F2F',
+    fontSize: 14,
+    marginTop: -4,
+    marginBottom: 10,
+    marginLeft: 2,
+  },
 });
