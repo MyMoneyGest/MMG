@@ -55,54 +55,64 @@ const AirtelBeneficiariesScreen = () => {
   }, [user]);
 
   const handleAddOrUpdate = async () => {
-    setPhoneError('');
+  setPhoneError('');
+  setSuccessMessage('');
 
-    if (!name || !phone) {
-      if (!phone) setPhoneError('Le numéro est requis.');
-      return;
+  if (!name || !phone) {
+    if (!phone) setPhoneError('Le numéro est requis.');
+    return;
+  }
+
+  if (!/^\d{9}$/.test(phone)) {
+    setPhoneError('Numéro invalide. 9 chiffres après +241 attendus.');
+    return;
+  }
+
+  try {
+    // 🔐 Format international obligatoire
+    const formattedPhone = '+241' + phone.replace(/^0/, '');
+
+    let linkedUid: string | null = null;
+
+    // ✅ Vérification dans la collection publique phoneDirectory
+    const phoneQuery = query(
+      collection(db, 'phoneDirectory'),
+      where('phone', '==', formattedPhone)
+    );
+    const snap = await getDocs(phoneQuery);
+
+    if (!snap.empty) {
+      linkedUid = snap.docs[0].data().uid;
     }
-    if (!/^\d{9}$/.test(phone)) {
-      setPhoneError('Numéro invalide. 9 chiffres après +241 attendus.');
-      return;
+
+    const payload = {
+      name,
+      phone: formattedPhone,
+      operator,
+      linkedUid,
+      createdAt: new Date(),
+    };
+
+    if (editId) {
+      const ref = doc(db, 'users', user!.uid, 'beneficiaries', editId);
+      await updateDoc(ref, payload);
+    } else {
+      await addDoc(collection(db, 'users', user!.uid, 'beneficiaries'), payload);
     }
 
-    try {
-      const phoneQuery = query(collection(db, 'phoneDirectory'), where('phone', '==', '+241' + phone));
-      const snap = await getDocs(phoneQuery);
+    setName('');
+    setPhone('');
+    setOperator('Airtel');
+    setEditId(null);
+    setModalVisible(false);
+    setSuccessMessage('Bénéficiaire mis à jour avec succès.');
 
-      let linkedUid: string | null = null;
-      if (!snap.empty) {
-        linkedUid = snap.docs[0].data().uid;
-      }
-
-      const payload = {
-        name,
-        phone: '+241' + phone,
-        operator,
-        linkedUid,
-        createdAt: new Date(),
-      };
-
-      if (editId) {
-        const ref = doc(db, 'users', user!.uid, 'beneficiaries', editId);
-        await updateDoc(ref, payload);
-      } else {
-        await addDoc(collection(db, 'users', user!.uid, 'beneficiaries'), payload);
-      }
-
-      setName('');
-      setPhone('');
-      setOperator('Airtel');
-      setEditId(null);
-      setModalVisible(false);
-      setSuccessMessage('Bénéficiaire mis à jour avec succès.');
-
-      navigation.navigate('AirtelBeneficiairesScreen');
-    } catch (e) {
-      console.error(e);
-      Alert.alert('Erreur', `Impossible d'${editId ? 'mettre à jour' : 'ajouter'} ce bénéficiaire.`);
-    }
-  };
+    navigation.navigate('AirtelBeneficiairesScreen');
+  } catch (e) {
+    console.error(e);
+    Alert.alert('Erreur', `Impossible d'${editId ? 'mettre à jour' : 'ajouter'} ce bénéficiaire.`);
+  }
+};
 
   const handleDelete = async (id: string) => {
     try {
@@ -189,6 +199,7 @@ const AirtelBeneficiariesScreen = () => {
             <Text style={styles.modalTitle}>{editId ? 'Modifier le bénéficiaire' : 'Ajouter un bénéficiaire'}</Text>
             <TextInput
               placeholder="Nom complet"
+              placeholderTextColor="#666"
               value={name}
               onChangeText={setName}
               style={styles.input}
@@ -200,6 +211,7 @@ const AirtelBeneficiariesScreen = () => {
             />
             <TextInput
               placeholder="Opérateur (Airtel, Moov...)"
+              placeholderTextColor="#666" 
               value={operator}
               onChangeText={setOperator}
               style={styles.input}

@@ -111,6 +111,7 @@ const RegisterScreen = () => {
       const user = userCredential.user;
 
       await updateProfile(user, { displayName: name });
+      const formattedPhone = '+241' + phone.replace(/^0/, '');
 
       const userData = {
         uid: user.uid,
@@ -118,18 +119,20 @@ const RegisterScreen = () => {
         type: 'personal',
         createdAt: new Date(),
         name,
-        phone: '+241' + phone,
+        phone: formattedPhone, // ✅ idem ici
       };
 
       await setDoc(doc(db, 'users', user.uid), userData);
-
+      
       await setDoc(doc(db, 'phoneDirectory', user.uid), {
         uid: user.uid,
-        phone,
+        phone: formattedPhone, // ✅ avec indicatif +241
         email,
         name,
         createdAt: new Date(),
       });
+      
+      
 
       navigation.navigate('Login');
     } catch (error: any) {

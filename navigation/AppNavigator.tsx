@@ -15,6 +15,10 @@ import LibertisTransactionsScreen from '../screens/Libertis/LibertisTransactions
 import AirtelMoneyAllTransactionsScreen from '../screens/Airtel/AirtelMoneyAllTransactionsScreen';
 import TransactionDetailLibertisScreen from '../screens/Libertis/TransactionDetailLibertisScreen';
 import VaultsScreen from '../screens/Airtel/VaultsScreen';
+import SharedVaultsScreen from '../screens/Airtel/SharedVaultsScreen';
+import SharedVaultDetailScreen from '../screens/Airtel/SharedVaultDetailScreen';
+import AddSharedVaultMemberScreen from '../screens/Airtel/AddSharedVaultMemberScreen';
+import CreateSharedVaultScreen from '../screens/Airtel/CreateSharedVaultScreen';
 import LinkAirtelScreen from '../screens/Airtel/LinkAirtelScreen';
 import VaultDetailsScreen from '../screens/Airtel/VaultDetailsScreen';
 import ConfirmSendAirtelScreen from '../screens/Airtel/ConfirmSendAirtelScreen';
@@ -95,6 +99,10 @@ export type RootStackParamList = {
   LibertisTransactions: undefined;
   TransactionDetail: { transaction: Transaction};
   VaultsScreen: undefined;
+  SharedVaultsScreen: undefined;
+  SharedVaultDetailScreen : {vaultId: string };
+  AddSharedVaultMemberScreen : { vaultId: string};
+  CreateSharedVaultScreen : undefined;
   LinkAirtelScreen: undefined;
   AirtelSendMoneyScreen : undefined;
   AirtelSupportScreen : undefined;
@@ -187,16 +195,20 @@ const AppNavigator = ({ initialRoute }: AppNavigatorProps) => {
   return (
     <Stack.Navigator initialRouteName={initialRoute ?? 'Login'}>
       <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="SharedVaultsScreen" component={SharedVaultsScreen}options={{ title: 'Coffres partagés' }}/>
+      <Stack.Screen name="CreateSharedVaultScreen" component={CreateSharedVaultScreen} options={{ title: 'Créer coffre partagé' }}/>
+      <Stack.Screen name="SharedVaultDetailScreen" component={SharedVaultDetailScreen} options={{ title: 'Détail du coffre partagé' }}/>
+      <Stack.Screen name="AddSharedVaultMemberScreen" component={AddSharedVaultMemberScreen} options={{ title: 'Ajouter un membre' }}/>     
       <Stack.Screen name="AirtelRechargeScreen" component={AirtelRechargeScreen} />
       <Stack.Screen name="MonthlyActivityScreen" component={MonthlyActivityScreen} />
       <Stack.Screen name="StatementsScreen" component={StatementsScreen} />
       <Stack.Screen name="AirtelWithdrawScreen" component={AirtelWithdrawScreen} />
-      <Stack.Screen name="Register" component={RegisterScreen} />
+      <Stack.Screen name="Register" component={RegisterScreen}  />
       <Stack.Screen name="RegisterCompteProScreen" component={RegisterCompteProScreen} />
-      <Stack.Screen name="HomeScreen" component={HomeScreen} />
+      <Stack.Screen name="HomeScreen" component={HomeScreen} options={{ title: 'Acceuil' }} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
-      <Stack.Screen name="Accounts" component={AccountsScreen} />
+      <Stack.Screen name="Accounts" component={AccountsScreen} options={{ title: 'Comptes' }} />
       <Stack.Screen name="AirtelMoney" component={AirtelMoneyScreen} />
       <Stack.Screen name="AirtelMoneyAllTransactions" component={AirtelMoneyAllTransactionsScreen} />
       <Stack.Screen name="Libertis" component={LibertisScreen} />

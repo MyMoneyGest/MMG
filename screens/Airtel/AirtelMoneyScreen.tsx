@@ -173,6 +173,7 @@ const AirtelMoneyScreen = () => {
     navigation.navigate('AirtelMoneyAllTransactions');
   };
   const handleNavigateToVaults = () => navigation.navigate('VaultsScreen');
+  const handleNavigateToSharedVaults = () => navigation.navigate('SharedVaultsScreen');
   const handleNavigateToBeneficiaries = () => navigation.navigate('AirtelBeneficiairesScreen');
   const handleNavigateToSendMoney = () => navigation.navigate('AirtelSendMoneyScreen');
   const handleNavigateToRequestPayment = () => navigation.navigate('RequestsHubScreen');
@@ -327,7 +328,7 @@ const AirtelMoneyScreen = () => {
                 <Ionicons name="wallet" size={20} color="#fff" />
                 <Text style={styles.buttonText}>Mes coffres</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton} onPress={handleNavigateToVaults}>
+              <TouchableOpacity style={styles.actionButton} onPress={handleNavigateToSharedVaults}>
                 <Ionicons name="wallet" size={20} color="#fff" />
                 <Text style={styles.buttonText}>Mes coffres partagés</Text>
               </TouchableOpacity>
