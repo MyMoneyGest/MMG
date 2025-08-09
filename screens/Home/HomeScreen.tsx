@@ -5,8 +5,8 @@ import {
   SafeAreaView,
   TouchableOpacity,
   StyleSheet,
-  Animated,
-  StatusBar,
+  Image,
+  ScrollView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -15,94 +15,128 @@ import { RootStackParamList } from '../../navigation/AppNavigator';
 
 type HomeScreenProp = NativeStackNavigationProp<RootStackParamList, 'HomeScreen'>;
 
-const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
-
 const HomeScreen = () => {
   const navigation = useNavigation<HomeScreenProp>();
 
-  const scale = React.useRef(new Animated.Value(1)).current;
-
-  const onPressIn = () => {
-    Animated.spring(scale, {
-      toValue: 0.97,
-      useNativeDriver: true,
-      friction: 4,
-      tension: 150,
-    }).start();
+  const user = {
+    name: 'Jean Kouassi',
+    phone: '+225 07 12 34 56 78',
+    email: 'jean.kouassi@email.com',
+    avatar: 'https://randomuser.me/api/portraits/men/75.jpg',
+    memberSince: 'Mars 2024',
+    accountType: 'Standard',
+    securityLevel: 85,
+    checks: [
+      { label: 'Identité vérifiée', completed: true },
+      { label: 'Numéro confirmé', completed: true },
+      { label: 'Email validé', completed: true },
+      { label: 'Code PIN défini', completed: true },
+      { label: 'Authentification 2FA', completed: false },
+    ]
   };
-
-  const onPressOut = () => {
-    Animated.spring(scale, {
-      toValue: 1,
-      useNativeDriver: true,
-      friction: 4,
-      tension: 150,
-    }).start();
-  };
-
-  // Exemple données wallet (à connecter à ton backend)
-  const walletBalance = '1 250,75 €';
-  const walletAccounts = 3;
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
-      
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>MyMoneyGest</Text>
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Profile')}
-          style={styles.profileButton}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="person-circle-outline" size={36} color="#444" />
-          <View style={styles.statusBadge} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Welcome Section */}
-      <View style={styles.card}>
-        <Text style={styles.welcomeText}>Bienvenue 👋</Text>
-        <Text style={styles.description}>
-          Gérez vos finances personnelles et professionnelles avec fluidité et élégance.
-        </Text>
-
-        {/* Message simple et bouton */}
-        <View style={styles.infoBox}>
-          <Ionicons name="notifications-outline" size={32} color="#5061FF" style={{marginBottom: 12}} />
-          <Text style={styles.infoText}>
-            Vous n’avez pas de notifications pour le moment.
-          </Text>
+      <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.headerTitle}>Mon Profil</Text>
+            <Text style={styles.headerSubtitle}>Vérifiez vos informations</Text>
+          </View>
+          <Ionicons name="shield-outline" size={22} color="#fff" />
         </View>
 
-        {/* Boutons d’action */}
-        <View style={styles.buttonsContainer}>
-          <AnimatedTouchable
-            onPress={() => navigation.navigate('Accounts')}
-            style={[styles.button, { transform: [{ scale }] }]}
-            activeOpacity={0.9}
-            onPressIn={onPressIn}
-            onPressOut={onPressOut}
-          >
-            <Ionicons name="person-outline" size={20} color="#5061FF" style={styles.icon} />
-            <Text style={styles.buttonText}>Je suis un particulier</Text>
-          </AnimatedTouchable>
+        <View style={styles.content}>
+          {/* Profile Card */}
+          <View style={styles.card}>
+            <View style={styles.profileRow}>
+              <Image source={{ uri: user.avatar }} style={styles.avatar} />
+              <View style={{ flex: 1 }}>
+                <View style={styles.nameRow}>
+                  <Text style={styles.name}>{user.name}</Text>
+                  <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
+                    <Ionicons name="create-outline" size={16} color="#000" />
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.textMuted}>{user.phone}</Text>
+                <Text style={styles.textMuted}>{user.email}</Text>
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>Compte vérifié</Text>
+                </View>
+              </View>
+            </View>
+          </View>
 
-          <AnimatedTouchable
-            onPress={() => navigation.navigate('GestionEntrepriseScreen')}
-            style={[styles.button, styles.enterpriseButton, { transform: [{ scale }] }]}
-            activeOpacity={0.9}
-            onPressIn={onPressIn}
-            onPressOut={onPressOut}
-          >
-            <Ionicons name="business-outline" size={20} color="#2AC48A" style={styles.icon} />
-            <Text style={[styles.buttonText, { color: '#2AC48A' }]}>
-              Je gère une entreprise
-            </Text>
-          </AnimatedTouchable>
+          {/* Security Level */}
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="shield-outline" size={20} color="#000" />
+              <Text style={styles.cardTitle}>Niveau de sécurité</Text>
+            </View>
+            <View style={{ marginTop: 12 }}>
+              <View style={styles.progressRow}>
+                <Text style={styles.textSmall}>Sécurité du compte</Text>
+                <Text style={styles.textSmallBold}>{user.securityLevel}%</Text>
+              </View>
+              <View style={styles.progressBar}>
+                <View style={[styles.progressFill, { width: `${user.securityLevel}%` }]} />
+              </View>
+            </View>
+            <View style={{ marginTop: 12 }}>
+              {user.checks.map((check, index) => (
+                <View key={index} style={styles.checkRow}>
+                  <Ionicons
+                    name={check.completed ? 'checkmark-circle' : 'ellipse-outline'}
+                    size={18}
+                    color={check.completed ? '#22c55e' : '#9ca3af'}
+                  />
+                  <Text style={[styles.textSmall, !check.completed && { color: '#9ca3af' }]}>
+                    {check.label}
+                  </Text>
+                  {!check.completed && (
+                    <TouchableOpacity>
+                      <Text style={styles.activateLink}>Activer</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* Account Info */}
+          <View style={styles.card}>
+            <View style={styles.accountInfo}>
+              <View style={styles.accountCol}>
+                <Text style={styles.textSmallMuted}>Type de compte</Text>
+                <Text style={styles.textMedium}>{user.accountType}</Text>
+              </View>
+              <View style={styles.accountCol}>
+                <Text style={styles.textSmallMuted}>Membre depuis</Text>
+                <Text style={styles.textMedium}>{user.memberSince}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Main Button */}
+          <TouchableOpacity style={styles.mainButton} onPress={() => navigation.navigate('Accounts')}>
+            <Text style={styles.mainButtonText}>Accéder à mes comptes</Text>
+            <Ionicons name="arrow-forward" size={18} color="#fff" style={{ marginLeft: 6 }} />
+          </TouchableOpacity>
+
+          {/* Quick Actions */}
+          <View style={styles.quickActions}>
+            <TouchableOpacity style={styles.outlineButton} onPress={() => navigation.navigate('Profile')}>
+              <Ionicons name="create-outline" size={16} color="#000" />
+              <Text style={styles.outlineButtonText}>Modifier profil</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.outlineButton} onPress={() => navigation.navigate('Profile')}> 
+              <Ionicons name="settings-outline" size={16} color="#000" />
+              <Text style={styles.outlineButtonText}>Paramètres</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -110,163 +144,81 @@ const HomeScreen = () => {
 export default HomeScreen;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 24,
-  },
+  container: { flex: 1, backgroundColor: '#f9fafb' },
   header: {
-    marginTop: 24,
-    marginBottom: 40,
+    backgroundColor: '#0f172a',
+    padding: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'center'
   },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    letterSpacing: 1.2,
-  },
-  profileButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#E6E9F2',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  statusBadge: {
-    position: 'absolute',
-    bottom: 5,
-    right: 5,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#2AC48A',
-    borderWidth: 2,
-    borderColor: '#F8FAFC',
-  },
+  headerTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  headerSubtitle: { color: '#cbd5e1', fontSize: 12 },
+  content: { padding: 16, gap: 16 },
   card: {
     backgroundColor: '#fff',
-    borderRadius: 28,
-    paddingVertical: 36,
-    paddingHorizontal: 28,
+    borderRadius: 12,
+    padding: 16,
     shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
-    alignItems: 'center',
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2
   },
-  welcomeText: {
-    fontSize: 24,
-    fontWeight: '500',
-    color: '#1C1C1E',
-    marginBottom: 6,
+  profileRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  avatar: { width: 64, height: 64, borderRadius: 32 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  name: { fontSize: 16, fontWeight: '600' },
+  textMuted: { fontSize: 13, color: '#6b7280' },
+  badge: {
+    marginTop: 6,
+    backgroundColor: '#f3f4f6',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8
   },
-  description: {
-    fontSize: 15,
-    fontWeight: '300',
-    color: '#6B7280',
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 32,
-    paddingHorizontal: 6,
+  badgeText: { fontSize: 12, color: '#374151' },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  cardTitle: { fontSize: 15, fontWeight: '600' },
+  progressRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  progressBar: {
+    height: 6,
+    backgroundColor: '#e5e7eb',
+    borderRadius: 3,
+    marginTop: 6
   },
-  walletContainer: {
+  progressFill: {
+    height: 6,
+    backgroundColor: '#0f172a',
+    borderRadius: 3
+  },
+  textSmall: { fontSize: 13 },
+  textSmallBold: { fontSize: 13, fontWeight: '600' },
+  checkRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
+  activateLink: { fontSize: 12, color: '#0f172a', marginLeft: 'auto' },
+  accountInfo: { flexDirection: 'row', justifyContent: 'space-between' },
+  accountCol: { alignItems: 'center', flex: 1 },
+  textSmallMuted: { fontSize: 12, color: '#6b7280' },
+  textMedium: { fontSize: 14, fontWeight: '600' },
+  mainButton: {
+    backgroundColor: '#0f172a',
+    padding: 14,
+    borderRadius: 8,
     flexDirection: 'row',
-    backgroundColor: '#F0F4FF',
-    padding: 24,
-    borderRadius: 20,
-    alignItems: 'center',
-    width: '100%',
-    marginBottom: 36,
-    shadowColor: '#5061FF',
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
+    justifyContent: 'center',
+    alignItems: 'center'
   },
-  walletIconContainer: {
-    marginRight: 24,
-    padding: 10,
-    backgroundColor: '#D7E1FF',
-    borderRadius: 16,
-  },
-  walletInfo: {
+  mainButtonText: { color: '#fff', fontWeight: '600' },
+  quickActions: { flexDirection: 'row', gap: 10, marginTop: 8 },
+  outlineButton: {
     flex: 1,
-  },
-  walletBalanceLabel: {
-    color: '#5061FF',
-    fontWeight: '600',
-    fontSize: 13,
-    marginBottom: 4,
-    letterSpacing: 0.7,
-  },
-  walletBalance: {
-    color: '#1C1C1E',
-    fontWeight: '700',
-    fontSize: 28,
-    marginBottom: 6,
-    letterSpacing: 1,
-  },
-  walletAccounts: {
-    color: '#6B7280',
-    fontSize: 14,
-    fontWeight: '400',
-  },
-  buttonsContainer: {
-    width: '100%',
-  },
-  button: {
     flexDirection: 'row',
-    borderWidth: 2,
-    borderColor: '#5061FF',
-    paddingVertical: 16,
-    paddingHorizontal: 28,
-    borderRadius: 20,
-    marginBottom: 20,
+    gap: 6,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent',
-    shadowColor: '#5061FF',
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 5 },
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#d1d5db'
   },
-  enterpriseButton: {
-    borderColor: '#2AC48A',
-    shadowColor: '#2AC48A',
-  },
-  icon: {
-    marginRight: 14,
-  },
-  buttonText: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#5061FF',
-  },
-  infoBox: {
-  width: '100%',
-  backgroundColor: '#E6F0FF',
-  borderRadius: 16,
-  paddingVertical: 24,
-  paddingHorizontal: 20,
-  marginBottom: 36,
-  justifyContent: 'center',
-  alignItems: 'center',
-  shadowColor: '#5061FF',
-  shadowOpacity: 0.12,
-  shadowRadius: 10,
-  shadowOffset: { width: 0, height: 5 },
-  elevation: 6,
-},
-infoText: {
-  fontSize: 16,
-  color: '#5061FF',
-  fontWeight: '500',
-  textAlign: 'center',
-  lineHeight: 22,
-},
+  outlineButtonText: { fontWeight: '500', color: '#000' }
 });

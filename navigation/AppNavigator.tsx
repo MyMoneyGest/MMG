@@ -64,6 +64,7 @@ import MonthlyActivityScreen from '../screens/Airtel/MonthlyActivityScreen';
 import StatementsScreen from '../screens/Airtel/StatementsScreen';
 import AirtelRechargeScreen from '../screens/Airtel/AirtelRechargeScreen';
 import AirtelWithdrawScreen from '../screens/Airtel/AirtelWithdrawScreen';
+import AddSharedVaultMoneyScreen from '../screens/Airtel/AddSharedVaultMoneyScreen';
 import PolitiqueConfidentialiteScreen from '../screens/Authentification/PolitiqueConfidentialiteScreen';
 import AirtelSupportScreen from '../screens/Airtel/AirtelSupportScreen';
 
@@ -167,7 +168,8 @@ export type RootStackParamList = {
   CompteBancaireEntrepriseScreen: { companyId: string };
   CompteBancaireEntrepriseDetailsScreen: { companyId: string };
   AirtelMoneyEntrepriseScreen: { companyId: string };
-  AirtelMoneyEntrepriseDetailsScreen: { companyId: string };
+  AddSharedVaultMoneyScreen : { vaultId:string };
+  AirtelMoneyEntrepriseDetailsScreen: {companyId: string };
   MoovMoneyEntrepriseScreen: { companyId: string };
   MoovMoneyEntrepriseDetailsScreen: { companyId: string };
 
@@ -196,6 +198,7 @@ const AppNavigator = ({ initialRoute }: AppNavigatorProps) => {
     <Stack.Navigator initialRouteName={initialRoute ?? 'Login'}>
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="SharedVaultsScreen" component={SharedVaultsScreen}options={{ title: 'Coffres partagés' }}/>
+      <Stack.Screen name="AddSharedVaultMoneyScreen" component={AddSharedVaultMoneyScreen}options={{ title: 'Ajouter de l argent aux coffres partagés' }}/>
       <Stack.Screen name="CreateSharedVaultScreen" component={CreateSharedVaultScreen} options={{ title: 'Créer coffre partagé' }}/>
       <Stack.Screen name="SharedVaultDetailScreen" component={SharedVaultDetailScreen} options={{ title: 'Détail du coffre partagé' }}/>
       <Stack.Screen name="AddSharedVaultMemberScreen" component={AddSharedVaultMemberScreen} options={{ title: 'Ajouter un membre' }}/>     

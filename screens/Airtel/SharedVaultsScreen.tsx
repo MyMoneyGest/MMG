@@ -1,166 +1,241 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, FlatList, TouchableOpacity, StyleSheet, SafeAreaView, ActivityIndicator
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  RefreshControl,
 } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { auth, db } from '@/services/firebaseConfig';
-import {
-  getDocs,
-  getDoc,
-  doc,
-  collection
-} from 'firebase/firestore';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { db, auth } from '@/services/firebaseConfig';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/navigation/AppNavigator';
+import { MaterialIcons } from '@expo/vector-icons';
 
-interface SharedVault {
+type Vault = {
   id: string;
   name: string;
   balance: number;
-  role: string;
-}
+  adminName: string;
+  userRole: 'admin' | 'editor' | 'viewer';
+};
+
+const getRoleLabel = (role: Vault['userRole']) => {
+  switch (role) {
+    case 'admin': return 'Administrateur';
+    case 'editor': return 'Contributeur';
+    case 'viewer': return 'Lecteur';
+    default: return 'Membre';
+  }
+};
 
 const SharedVaultsScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const insets = useSafeAreaInsets();
-  const [vaults, setVaults] = useState<SharedVault[]>([]);
-  const [loading, setLoading] = useState(true);
   const user = auth.currentUser;
 
-  const fetchUserSharedVaults = async () => {
-    if (!user) return;
+  const [vaults, setVaults] = useState<Vault[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
-    try {
-      setLoading(true); // ← remet le loader pendant le refresh
-      const vaultsData: SharedVault[] = [];
+  const fetchVaults = async () => {
+  if (!user) return;
 
-      const vaultsSnapshot = await getDocs(collection(db, 'sharedVaults'));
+  try {
+    const refsSnap = await getDocs(collection(db, 'users', user.uid, 'sharedVaultRefs'));
+    const vaultsList: Vault[] = [];
 
-      for (const vaultDoc of vaultsSnapshot.docs) {
-        const vaultId = vaultDoc.id;
-        const memberRef = doc(db, 'sharedVaults', vaultId, 'members', user.uid);
-        const memberSnap = await getDoc(memberRef);
+    for (const refDoc of refsSnap.docs) {
+      const vaultId = refDoc.id;
+      const vaultSnap = await getDoc(doc(db, 'sharedVaults', vaultId));
 
-        if (memberSnap.exists()) {
-          const memberData = memberSnap.data();
-          const vaultData = vaultDoc.data();
+      if (!vaultSnap.exists()) continue;
 
-          vaultsData.push({
-            id: vaultId,
-            name: vaultData.name,
-            balance: vaultData.balance ?? 0,
-            role: memberData.role ?? 'membre',
-          });
+      const vaultData = vaultSnap.data();
+
+      // Récupérer le rôle de l’utilisateur
+      const memberSnap = await getDoc(doc(db, 'sharedVaults', vaultId, 'members', user.uid));
+      const userRole = memberSnap.exists() ? memberSnap.data().role : 'viewer';
+
+      // Récupérer nom de l'admin
+      let adminName = 'Inconnu';
+      if (vaultData.createdBy) {
+        const adminSnap = await getDoc(doc(db, 'users', vaultData.createdBy));
+        if (adminSnap.exists()) {
+          const adminData = adminSnap.data();
+          adminName = adminData.fullName || adminData.phoneNumber || 'Inconnu';
         }
       }
 
-      setVaults(vaultsData);
-    } catch (error) {
-      console.error('Erreur de chargement des coffres partagés :', error);
-    } finally {
-      setLoading(false);
+      vaultsList.push({
+        id: vaultId,
+        name: vaultData.name || 'Coffre sans nom',
+        balance: vaultData.balance || 0,
+        adminName,
+        userRole,
+      });
     }
-  };
 
-  useEffect(() => {
-    fetchUserSharedVaults();
-  }, []);
+    // Tri par nom
+    const sorted = vaultsList.sort((a, b) =>
+      a.name?.toLowerCase().localeCompare(b.name?.toLowerCase())
+    );
+
+    setVaults(sorted);
+  } catch (err) {
+    console.error('❌ Erreur de chargement des coffres partagés :', err);
+  }
+};
 
   useFocusEffect(
     useCallback(() => {
-      fetchUserSharedVaults();
+      fetchVaults();
     }, [])
   );
 
-  const handleOpenVault = (vault: SharedVault) => {
-    navigation.navigate('SharedVaultDetailScreen', { vaultId: vault.id });
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchVaults();
+    setRefreshing(false);
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+    <View style={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
         <Text style={styles.title}>Coffres partagés</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('CreateSharedVaultScreen')}>
-          <Text style={styles.addButton}>+ Nouveau</Text>
-        </TouchableOpacity>
-      </View>
 
-      {loading ? (
-        <ActivityIndicator size="large" color="#00796B" style={{ marginTop: 40 }} />
-      ) : vaults.length === 0 ? (
-        <Text style={styles.emptyText}>Aucun coffre partagé trouvé.</Text>
-      ) : (
-        <FlatList
-          data={vaults}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{ paddingBottom: 100 }}
-          renderItem={({ item }) => (
+        {vaults.length === 0 ? (
+          <Text style={styles.emptyText}>
+            Vous ne participez à aucun coffre pour le moment.
+          </Text>
+        ) : (
+          vaults.map((vault) => (
             <TouchableOpacity
+              key={vault.id}
               style={styles.vaultCard}
-              onPress={() => handleOpenVault(item)}
+              onPress={() => navigation.navigate('SharedVaultDetailScreen', { vaultId: vault.id })}
             >
-              <Text style={styles.vaultName}>{item.name}</Text>
-              <Text style={styles.balance}>💰 {item.balance.toLocaleString()} FCFA</Text>
-              <Text style={styles.role}>Rôle : {item.role}</Text>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>
+                  {vault.name.charAt(0).toUpperCase() ?? '?'}
+                </Text>
+              </View>
+
+              <View style={styles.vaultInfo}>
+                <Text style={styles.vaultName}>{vault.name}</Text>
+                <Text style={styles.vaultBalance}>
+                  💰 {vault.balance.toLocaleString()} FCFA
+                </Text>
+                <Text style={styles.adminText}>👤 Admin : {vault.adminName}</Text>
+              </View>
+
+              <View style={styles.roleTag}>
+                <Text style={styles.roleText}>{getRoleLabel(vault.userRole)}</Text>
+              </View>
             </TouchableOpacity>
-          )}
-        />
-      )}
-    </SafeAreaView>
+          ))
+        )}
+      </ScrollView>
+
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => navigation.navigate('CreateSharedVaultScreen')}
+      >
+        <MaterialIcons name="add" size={28} color="#fff" />
+      </TouchableOpacity>
+    </View>
   );
 };
 
 export default SharedVaultsScreen;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F0F8F6', paddingHorizontal: 16 },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
+  container: {
+    flex: 1,
+    backgroundColor: '#F9F9F9',
+  },
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 100,
   },
   title: {
-    fontSize: 22,
+    fontSize: 26,
+    fontWeight: 'bold',
+    color: '#00796B',
+    marginBottom: 20,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 40,
+  },
+  vaultCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 16,
+    marginBottom: 14,
+    elevation: 2,
+  },
+  avatar: {
+    backgroundColor: '#00796B33',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  avatarText: {
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#00796B',
   },
-  addButton: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#00796B',
-  },
-  emptyText: {
-    marginTop: 50,
-    textAlign: 'center',
-    fontSize: 16,
-    color: '#999',
-  },
-  vaultCard: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 10,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 2,
+  vaultInfo: {
+    flex: 1,
   },
   vaultName: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#004D40',
+    fontWeight: '600',
+    color: '#222',
+    marginBottom: 2,
   },
-  balance: {
+  vaultBalance: {
     fontSize: 16,
-    marginTop: 6,
-    color: '#333',
+    color: '#4CAF50',
+    fontWeight: '500',
   },
-  role: {
+  adminText: {
     fontSize: 14,
+    color: '#666',
     marginTop: 4,
-    color: '#777',
+  },
+  roleTag: {
+    backgroundColor: '#E0F2F1',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  roleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#00796B',
+  },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 30,
+    backgroundColor: '#00796B',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
   },
 });

@@ -1,422 +1,495 @@
-import React, { useEffect, useState } from 'react';
+// screens/ProfileScreen.tsx
+import React, { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity,
-  StyleSheet, Alert, ActivityIndicator, Platform, Image, ScrollView,
+  View, Text, StyleSheet, TouchableOpacity, Image, ScrollView,
+  TextInput, ActivityIndicator, SafeAreaView, Platform
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { getDoc, doc, updateDoc, Timestamp } from 'firebase/firestore';
-import { auth, db } from '../../services/firebaseConfig';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../navigation/AppNavigator';
-import { signOut } from 'firebase/auth';
-import * as ImagePicker from 'expo-image-picker';
-import { uploadProfilePicture } from '../../services/firebaseStorage';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import * as ImagePicker from 'expo-image-picker';
 
-type ProfileScreenProp = NativeStackNavigationProp<RootStackParamList, 'Profile'>;
+const COLORS = {
+  bg: '#f9fafb',
+  header: '#0f172a',
+  white: '#ffffff',
+  muted: '#6b7280',
+  border: '#e5e7eb',
+  border2: '#d1d5db',
+  text: '#000000',
+  primary: '#0f172a',
+  progress: '#0f172a',
+  success: '#22c55e',
+  slate: '#cbd5e1',
+};
 
-const ProfileScreen = () => {
-  const navigation = useNavigation<ProfileScreenProp>();
-  const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState('');
-  const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
-  const [birthday, setBirthday] = useState('');
+export default function ProfileScreen({ navigation }: any) {
+  const [loading, setLoading] = useState(false);
+
+  // Données profil (branche-les à Firestore/Auth si besoin)
+  const [name, setName] = useState('Jean Kouassi');
+  const [email] = useState('jean.kouassi@email.com');
+  const [phone, setPhone] = useState('+241 06 00 00 00');
+  const [address, setAddress] = useState('Libreville, Gabon');
   const [birthDate, setBirthDate] = useState<Date | null>(null);
   const [showPicker, setShowPicker] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<Timestamp | null>(null);
-  const [imageUri, setImageUri] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [imageUri, setImageUri] = useState<string | null>('https://randomuser.me/api/portraits/men/75.jpg');
 
-  const askPermissions = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permissions requises', 'Nous avons besoin de la permission pour accéder à vos photos.');
-      return false;
+  // Sécurité (changement mdp inline)
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword]         = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPass, setShowPass] = useState({ current:false, next:false, confirm:false });
+
+  // Erreurs inline
+  const [errors, setErrors] = useState<{[k:string]: string}>({});
+
+  const validate = () => {
+    const e: {[k:string]: string} = {};
+    if (!name.trim()) e.name = 'Le nom est requis';
+    if (!phone.startsWith('+241')) e.phone = 'Le numéro doit commencer par +241';
+    if (!address.trim()) e.address = 'Adresse requise';
+
+    if (newPassword || confirmPassword) {
+      if (!currentPassword) e.currentPassword = 'Mot de passe actuel requis';
+      if ((newPassword || '').length < 6) e.newPassword = 'Min. 6 caractères';
+      if (newPassword !== confirmPassword) e.confirmPassword = 'Les mots de passe ne correspondent pas';
     }
-    return true;
+
+    setErrors(e);
+    return Object.keys(e).length === 0;
   };
 
-  useEffect(() => {
-    const fetchUser = async () => {
-      const currentUser = auth.currentUser;
-      if (currentUser) {
-        setEmail(currentUser.email || '');
-        const userRef = doc(db, 'users', currentUser.uid);
-        const userSnap = await getDoc(userRef);
-
-        if (userSnap.exists()) {
-          const data = userSnap.data();
-          setUserId(currentUser.uid);
-          setName(data.name || '');
-          setPhone(data.phone || '');
-          setAddress(data.address || '');
-          setBirthday(data.birthday || '');
-          setLastUpdated(data.lastUpdated || null);
-          setImageUri(data.photoURL || null);
-          if (data.birthday) {
-            setBirthDate(new Date(data.birthday));
-          }
-        }
-      }
+  const handleSave = async () => {
+    if (!validate()) return;
+    setLoading(true);
+    try {
+      // TODO: branche ici la mise à jour Firestore + updatePassword si nécessaire
+      setTimeout(() => {
+        setLoading(false);
+        alert('Modifications enregistrées ✅');
+      }, 800);
+    } catch {
       setLoading(false);
-    };
-
-    const requestPermissionsAndFetch = async () => {
-      await askPermissions();
-      await fetchUser();
-    };
-
-    requestPermissionsAndFetch();
-  }, []);
-
-  const is24hPassed = () => {
-    if (!lastUpdated) return true;
-    const now = new Date();
-    const last = lastUpdated.toDate();
-    return now.getTime() - last.getTime() > 24 * 60 * 60 * 1000;
-  };
-
-  const getRemainingTime = () => {
-    if (!lastUpdated) return '';
-    const now = new Date();
-    const last = lastUpdated.toDate();
-    const diff = 24 * 60 * 60 * 1000 - (now.getTime() - last.getTime());
-    if (diff <= 0) return '';
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    return `${hours}h ${minutes}min`;
-  };
-
-  const disabled = !is24hPassed();
-
-  const handleUpdate = async () => {
-    if (!name || !phone || !address) {
-      Alert.alert('Champs requis', 'Tous les champs doivent être remplis.');
-      return;
-    }
-
-    if (!phone.startsWith('+241')) {
-      Alert.alert('Format invalide', 'Le numéro doit commencer par +241.');
-      return;
-    }
-
-    if (!is24hPassed()) {
-      Alert.alert('Modification refusée', 'Vous devez attendre 24 heures après votre dernière modification.');
-      return;
-    }
-
-    try {
-      const userRef = doc(db, 'users', userId);
-      await updateDoc(userRef, {
-        name,
-        phone,
-        address,
-        birthday,
-        lastUpdated: Timestamp.now(),
-      });
-
-      setLastUpdated(Timestamp.now());
-      Alert.alert('Succès', 'Profil mis à jour avec succès.');
-    } catch (error) {
-      Alert.alert('Erreur', 'Une erreur est survenue pendant la mise à jour.');
-    }
-  };
-
-  const goToChangePassword = () => navigation.navigate('ChangePassword');
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
-    } catch (error) {
-      Alert.alert('Erreur', 'Impossible de se déconnecter.');
+      alert('Une erreur est survenue.');
     }
   };
 
   const pickImage = async () => {
-    if (!userId) {
-      Alert.alert("Erreur", "Utilisateur non identifié.");
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      alert("Autorisez l'accès aux photos pour changer l'avatar.");
       return;
     }
-
-    const hasPermission = await askPermissions();
-    if (!hasPermission) return;
-
-    const result = await ImagePicker.launchImageLibraryAsync({
+    const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
+      aspect: [1,1],
+      quality: 0.9,
     });
-
-    if (!result.canceled && result.assets?.length > 0) {
-      const uri = result.assets[0].uri;
-      setImageUri(uri);
-
-      try {
-        setUploading(true);
-        const downloadURL = await uploadProfilePicture(uri, userId);
-        await updateDoc(doc(db, 'users', userId), { photoURL: downloadURL });
-        Alert.alert('Succès', 'Photo de profil mise à jour.');
-      } catch (error) {
-        Alert.alert('Erreur', 'Échec du téléversement.');
-      } finally {
-        setUploading(false);
-      }
+    if (!res.canceled && res.assets?.length) {
+      setImageUri(res.assets[0].uri);
+      // TODO: upload Storage + maj Firestore
     }
   };
 
-  if (loading) return <ActivityIndicator style={{ flex: 1 }} size="large" color="#00796B" />;
+  const securityLevel = 85;
+  const checks = [
+    { label: 'Identité vérifiée', completed: true },
+    { label: 'Numéro confirmé', completed: true },
+    { label: 'Email validé', completed: true },
+    { label: 'Code PIN défini', completed: true },
+    { label: 'Authentification 2FA', completed: false },
+  ];
 
   return (
-    <LinearGradient colors={['#A8E6CF', '#00BCD4']} style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.bg }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+        {/* Header */}
         <View style={styles.header}>
-          {imageUri ? (
-            <Image
-              source={{ uri: imageUri }}
-              style={styles.profileImage}
-            />
-          ) : (
-            <View style={[styles.profileImage, styles.placeholder]}>
-              <Ionicons name="person" size={64} color="#00796B" />
-            </View>
-          )}
-          <TouchableOpacity style={styles.editPhotoBtn} onPress={pickImage} disabled={uploading}>
-            <Text style={styles.editPhotoText}>{uploading ? 'Téléversement...' : 'Changer la photo'}</Text>
-          </TouchableOpacity>
-          <Text style={styles.welcomeText}>Bienvenue, {name ? name.split(' ')[0] : 'Utilisateur'} 👋</Text>
+          <View>
+            <Text style={styles.headerTitle}>Modifier le profil</Text>
+            <Text style={styles.headerSubtitle}>Mettez à jour vos informations personnelles</Text>
+          </View>
+          <Ionicons name="shield-outline" size={22} color="#fff" />
         </View>
 
-        <View style={styles.form}>
-          <View style={styles.inputGroup}>
-            <Ionicons name="mail-outline" size={20} color="#00796B" style={styles.icon} />
-            <TextInput style={[styles.input, styles.disabled]} value={email} editable={false} />
-          </View>
+        <View style={styles.content}>
+          {/* Profile Card */}
+          <View style={styles.card}>
+          <Text style={styles.photoTitle}>
+            <Ionicons name="camera-outline" size={16} color="#1e293b" /> Photo de profil
+          </Text>
 
-          <View style={styles.inputGroup}>
-            <Ionicons name="person-outline" size={20} color="#00796B" style={styles.icon} />
-            <TextInput
-              style={[styles.input, disabled && styles.disabled]}
-              value={name}
-              onChangeText={setName}
-              editable={!disabled}
-              placeholder="Nom complet"
-              placeholderTextColor="#666"
+          <View style={styles.photoContainer}>
+            <Image
+              source={{ uri: imageUri || 'https://via.placeholder.com/150' }}
+              style={styles.profileImage}
             />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Ionicons name="call-outline" size={20} color="#00796B" style={styles.icon} />
-            <TextInput
-              style={[styles.input, disabled && styles.disabled]}
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-              editable={!disabled}
-              placeholder="+241 ..."
-              placeholderTextColor="#666"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Ionicons name="location-outline" size={20} color="#00796B" style={styles.icon} />
-            <TextInput
-              style={[styles.input, disabled && styles.disabled]}
-              value={address}
-              onChangeText={setAddress}
-              editable={!disabled}
-              placeholder="Adresse"
-              placeholderTextColor="#666"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Ionicons name="calendar-outline" size={20} color="#00796B" style={styles.icon} />
-            <TouchableOpacity
-              onPress={() => !disabled && setShowPicker(true)}
-              style={[styles.input, disabled && styles.disabled]}
-              disabled={disabled}
-            >
-              <Text style={{ color: birthDate ? '#000' : '#666' }}>
-                {birthDate ? birthDate.toLocaleDateString('fr-FR') : 'Sélectionnez une date'}
-              </Text>
+            <TouchableOpacity style={styles.cameraBtn} onPress={pickImage}>
+              <Ionicons name="camera-outline" size={16} color="#fff" />
             </TouchableOpacity>
           </View>
 
-          {showPicker && (
-            <DateTimePicker
-              value={birthDate || new Date()}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={(event, selectedDate) => {
-                setShowPicker(Platform.OS === 'ios');
-                if (selectedDate) {
-                  setBirthDate(selectedDate);
-                  setBirthday(selectedDate.toISOString());
-                }
-              }}
-              maximumDate={new Date()}
-            />
-          )}
+          <Text style={styles.photoInfo}>JPG, PNG jusqu'à 5MB</Text>
+        </View>
 
-          <TouchableOpacity style={[styles.button, disabled && styles.buttonDisabled]} onPress={handleUpdate} disabled={disabled}>
-            <Text style={styles.buttonText}>Mettre à jour</Text>
+          {/* Informations personnelles */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Informations personnelles</Text>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Nom complet</Text>
+              <TextInput
+                style={[styles.input, errors.name && styles.inputError]}
+                value={name}
+                onChangeText={setName}
+                placeholder="Votre nom complet"
+                placeholderTextColor={COLORS.muted}
+              />
+              {!!errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Adresse email</Text>
+              <TextInput
+                style={[styles.input, { color: '#8A8F98' }]}
+                value={email}
+                editable={false}
+              />
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Numéro de téléphone</Text>
+              <TextInput
+                style={[styles.input, errors.phone && styles.inputError]}
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+                placeholder="+241 XX XX XX XX"
+                placeholderTextColor={COLORS.muted}
+              />
+              {!!errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Adresse</Text>
+              <TextInput
+                style={[styles.input, errors.address && styles.inputError]}
+                value={address}
+                onChangeText={setAddress}
+                placeholder="Votre adresse"
+                placeholderTextColor={COLORS.muted}
+              />
+              {!!errors.address && <Text style={styles.errorText}>{errors.address}</Text>}
+            </View>
+
+            <Text style={styles.label}>Date de naissance</Text>
+            <TouchableOpacity
+              style={styles.dateBtn}
+              onPress={() => setShowPicker(true)}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="calendar-outline" size={18} color={COLORS.primary} />
+              <Text style={styles.dateText}>
+                {birthDate ? birthDate.toLocaleDateString('fr-FR') : 'Sélectionner une date'}
+              </Text>
+            </TouchableOpacity>
+
+            {showPicker && (
+              <DateTimePicker
+                value={birthDate || new Date()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(event, selectedDate) => {
+                  setShowPicker(Platform.OS === 'ios');
+                  if (selectedDate) setBirthDate(selectedDate);
+                }}
+                maximumDate={new Date()}
+              />
+            )}
+          </View>
+
+          {/* Sécurité du compte */}
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="shield-outline" size={20} color={COLORS.text} />
+              <Text style={styles.cardTitle}>Sécurité du compte</Text>
+            </View>
+
+            <Text style={styles.smallHint}>Laissez vide si vous ne souhaitez pas changer votre mot de passe</Text>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Mot de passe actuel</Text>
+              <View style={styles.passRow}>
+                <TextInput
+                  style={[styles.inputFlex, errors.currentPassword && styles.inputError]}
+                  value={currentPassword}
+                  onChangeText={setCurrentPassword}
+                  secureTextEntry={!showPass.current}
+                  placeholder="Votre mot de passe actuel"
+                  placeholderTextColor={COLORS.muted}
+                />
+                <TouchableOpacity onPress={() => setShowPass(s => ({ ...s, current: !s.current }))}>
+                  <Ionicons name={showPass.current ? 'eye-off' : 'eye'} size={18} color={COLORS.primary} />
+                </TouchableOpacity>
+              </View>
+              {!!errors.currentPassword && <Text style={styles.errorText}>{errors.currentPassword}</Text>}
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Nouveau mot de passe</Text>
+              <View style={styles.passRow}>
+                <TextInput
+                  style={[styles.inputFlex, errors.newPassword && styles.inputError]}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  secureTextEntry={!showPass.next}
+                  placeholder="Au moins 6 caractères"
+                  placeholderTextColor={COLORS.muted}
+                />
+                <TouchableOpacity onPress={() => setShowPass(s => ({ ...s, next: !s.next }))}>
+                  <Ionicons name={showPass.next ? 'eye-off' : 'eye'} size={18} color={COLORS.primary} />
+                </TouchableOpacity>
+              </View>
+              {!!errors.newPassword && <Text style={styles.errorText}>{errors.newPassword}</Text>}
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Confirmer le nouveau mot de passe</Text>
+              <View style={styles.passRow}>
+                <TextInput
+                  style={[styles.inputFlex, errors.confirmPassword && styles.inputError]}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!showPass.confirm}
+                  placeholder="Répétez le nouveau mot de passe"
+                  placeholderTextColor={COLORS.muted}
+                />
+                <TouchableOpacity onPress={() => setShowPass(s => ({ ...s, confirm: !s.confirm }))}>
+                  <Ionicons name={showPass.confirm ? 'eye-off' : 'eye'} size={18} color={COLORS.primary} />
+                </TouchableOpacity>
+              </View>
+              {!!errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
+            </View>
+
+            {/* Niveau de sécurité */}
+            <View style={{ marginTop: 12 }}>
+              <View style={styles.progressRow}>
+                <Text style={styles.textSmall}>Sécurité du compte</Text>
+                <Text style={styles.textSmallBold}>{securityLevel}%</Text>
+              </View>
+              <View style={styles.progressBar}>
+                <View style={[styles.progressFill, { width: `${securityLevel}%` }]} />
+              </View>
+              <View style={{ marginTop: 12 }}>
+                {checks.map((check, i) => (
+                  <View key={i} style={styles.checkRow}>
+                    <Ionicons
+                      name={check.completed ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={18}
+                      color={check.completed ? COLORS.success : '#9ca3af'}
+                    />
+                    <Text style={[styles.textSmall, !check.completed && { color: '#9ca3af' }]}>
+                      {check.label}
+                    </Text>
+                    {!check.completed && (
+                      <TouchableOpacity>
+                        <Text style={styles.activateLink}>Activer</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ))}
+              </View>
+            </View>
+          </View>
+
+          {/* Actions */}
+          <TouchableOpacity style={styles.mainButton} onPress={handleSave} disabled={loading}>
+            {loading
+              ? <ActivityIndicator color="#fff" />
+              : (
+                <>
+                  <Text style={styles.mainButtonText}>Sauvegarder les modifications</Text>
+                  <Ionicons name="save-outline" size={18} color="#fff" style={{ marginLeft: 6 }} />
+                </>
+              )}
           </TouchableOpacity>
 
-          {disabled && (
-            <Text style={styles.warningText}>
-              Vous pourrez modifier vos informations dans {getRemainingTime()}.
-            </Text>
-          )}
-
-          <TouchableOpacity style={styles.linkButton} onPress={goToChangePassword}>
-            <Text style={styles.linkText}>Changer le mot de passe</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={styles.logoutText}>Se déconnecter</Text>
+          <TouchableOpacity style={styles.outlineButton} onPress={() => navigation?.goBack?.()}>
+            <Ionicons name="close-outline" size={18} color={COLORS.text} />
+            <Text style={styles.outlineButtonText}>Annuler</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
-
-      <View style={styles.bottomBackground} />
-    </LinearGradient>
+    </SafeAreaView>
   );
-};
-
-export default ProfileScreen;
+}
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingVertical: 30,
-    paddingHorizontal: 20,
-    paddingBottom: 60,
-  },
+  container: { flex: 1, backgroundColor: COLORS.bg },
   header: {
-    alignItems: 'center',
-    marginBottom: 25,
+    backgroundColor: COLORS.header,
+    padding: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
   },
-  profileImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 3,
-    borderColor: '#00796B',
-    backgroundColor: '#dcedc8',
+  headerTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  headerSubtitle: { color: COLORS.slate, fontSize: 12 },
+
+  content: { padding: 16, gap: 16 },
+
+  card: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 5,
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2
   },
-  placeholder: {
-    justifyContent: 'center',
-    alignItems: 'center',
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  cardTitle: { fontSize: 15, fontWeight: '600' },
+
+  profileRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  avatar: { width: 64, height: 64, borderRadius: 32 },
+  avatarFallback: { backgroundColor: '#f3f4f6', alignItems: 'center', justifyContent: 'center' },
+
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  name: { fontSize: 16, fontWeight: '600' },
+  textMuted: { fontSize: 13, color: COLORS.muted },
+
+  badge: {
+    marginTop: 6,
+    backgroundColor: '#f3f4f6',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    alignSelf: 'flex-start'
   },
-  editPhotoBtn: {
-    marginTop: 10,
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    backgroundColor: '#00796B',
-    borderRadius: 20,
-    alignSelf: 'center',
+  badgeText: { fontSize: 12, color: '#374151' },
+
+  field: { marginTop: 12 },
+  label: { fontSize: 13, color: COLORS.text, marginBottom: 6, fontWeight: '500' },
+  input: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: COLORS.text
   },
-  editPhotoText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  welcomeText: {
-    marginTop: 15,
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#004D40',
-  },
-  form: {
-    backgroundColor: '#ffffffdd',
-    borderRadius: 15,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  inputGroup: {
+  inputError: { borderColor: '#dc2626' },
+  errorText: { color: '#dc2626', fontSize: 12, marginTop: 6 },
+
+  dateBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 18,
-    borderBottomWidth: 1,
-    borderColor: '#00796B',
-    paddingBottom: 6,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 6
   },
-  icon: {
-    marginRight: 10,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    color: '#004D40',
-  },
-  disabled: {
-    backgroundColor: '#eee',
-    color: '#999',
-  },
-  button: {
-    backgroundColor: '#00796B',
-    paddingVertical: 14,
-    borderRadius: 25,
-    marginTop: 15,
+  dateText: { color: COLORS.text },
+
+  passRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6
   },
-  buttonDisabled: {
-    backgroundColor: '#a0a0a0',
+  inputFlex: { flex: 1, color: COLORS.text },
+
+  smallHint: { fontSize: 12, color: COLORS.muted, marginTop: 6 },
+
+  progressRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  progressBar: { height: 6, backgroundColor: COLORS.border, borderRadius: 3, marginTop: 6 },
+  progressFill: { height: 6, backgroundColor: COLORS.progress, borderRadius: 3 },
+
+  textSmall: { fontSize: 13 },
+  textSmallBold: { fontSize: 13, fontWeight: '600' },
+  checkRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
+  activateLink: { fontSize: 12, color: COLORS.primary, marginLeft: 'auto' },
+
+  mainButton: {
+    backgroundColor: COLORS.primary,
+    padding: 14,
+    borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center'
   },
-  buttonText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  warningText: {
-    marginTop: 12,
-    color: '#d32f2f',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  linkButton: {
-    marginTop: 20,
+  mainButtonText: { color: '#fff', fontWeight: '600' },
+
+  outlineButton: {
+    flexDirection: 'row',
+    gap: 6,
     alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border2,
+    marginTop: 10
   },
-  linkText: {
-    color: '#00796B',
-    fontSize: 16,
-    fontWeight: '600',
-    textDecorationLine: 'underline',
-  },
-  logoutButton: {
-    marginTop: 35,
-    alignItems: 'center',
-  },
-  logoutText: {
-    color: '#d32f2f',
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  bottomBackground: {
-    position: 'absolute',
-    bottom: 0,
-    height: 50,
-    width: '100%',
-    backgroundColor: '#004D40',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-  },
+  outlineButtonText: { fontWeight: '500', color: COLORS.text },
+
+  profileCard: {
+  backgroundColor: '#fff',
+  borderRadius: 12,
+  paddingVertical: 20,
+  paddingHorizontal: 16,
+  alignItems: 'center',
+  shadowColor: '#000',
+  shadowOpacity: 0.05,
+  shadowRadius: 6,
+  elevation: 2,
+},
+photoTitle: {
+  fontSize: 14,
+  color: '#1e293b',
+  fontWeight: '500',
+  marginBottom: 16,
+  textAlign: 'center', // centrage
+},
+photoContainer: {
+  position: 'relative',
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+profileImage: {
+  width: 96,
+  height: 96,
+  borderRadius: 48,
+},
+cameraBtn: {
+  position: 'absolute',
+  bottom: 0,
+  right: '35%',
+  backgroundColor: '#1e293b',
+  borderRadius: 16,
+  padding: 6,
+},
+photoInfo: {
+  marginTop: 10,
+  fontSize: 12,
+  color: '#64748b',
+  backgroundColor: '#f1f5f9',
+  paddingHorizontal: 8,
+  paddingVertical: 2,
+  borderRadius: 6,
+  textAlign: 'center', // centrage
+  alignSelf: 'center', // centre dans le parent
+}
+
 });

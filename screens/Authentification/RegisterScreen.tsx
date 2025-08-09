@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -7,15 +7,15 @@ import {
   StyleSheet,
   ActivityIndicator,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 
-import {
-  createUserWithEmailAndPassword,
-  updateProfile,
-} from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { setDoc, doc } from 'firebase/firestore';
 import { auth, db } from '../../services/firebaseConfig';
 
@@ -23,220 +23,355 @@ type RegisterScreenProp = NativeStackNavigationProp<RootStackParamList, 'Registe
 
 const RegisterScreen = () => {
   const navigation = useNavigation<RegisterScreenProp>();
-  const [accountType, setAccountType] = useState<'personal' | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [secure, setSecure] = useState(true);
 
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  // Wizard
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const next = () => setStep((s) => (s < 3 ? ((s + 1) as 1 | 2 | 3) : s));
+  const prev = () => setStep((s) => (s > 1 ? ((s - 1) as 1 | 2 | 3) : s));
 
-  // erreurs
-  const [nameError, setNameError] = useState('');
-  const [phoneError, setPhoneError] = useState('');
-  const [emailError, setEmailError] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const [confirmError, setConfirmError] = useState('');
-  const [generalError, setGeneralError] = useState('');
+  // Form
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName]   = useState('');
+  const [phoneRaw, setPhoneRaw]   = useState(''); // chiffres sans indicatif
+  const [email, setEmail]         = useState('');
+  const [password, setPassword]   = useState('');
+  const [confirm, setConfirm]     = useState('');
 
-  const validateEmail = (email: string) => {
-    const commonDomains = [
-      'gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com',
-      'icloud.com', 'protonmail.com',
-    ];
-    const genericTLD = /\.(com|fr|org|net|ga|io)$/i;
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  // UX
+  const [showPwd, setShowPwd]         = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [acceptNews, setAcceptNews]   = useState(false);
+  const [loading, setLoading]         = useState(false);
 
-    if (!emailRegex.test(email)) return false;
-    const domain = email.split('@')[1].toLowerCase();
-    return commonDomains.includes(domain) || genericTLD.test(domain);
+  // Errors
+  const [errors, setErrors] = useState<{[k:string]: string}>({});
+
+  // Derived phone formats (+241 par défaut)
+  const phonePretty = useMemo(() => {
+    const d = phoneRaw.replace(/\D/g, '');
+    return d ? `+241 ${d.replace(/(\d{2})(?=\d)/g, '$1 ')}`.trim() : '+241 ';
+  }, [phoneRaw]);
+
+  const phoneE164 = useMemo(() => {
+    const d = phoneRaw.replace(/\D/g, '');
+    return d ? `+241${d}` : '';
+  }, [phoneRaw]);
+
+  // Validators
+  const isEmail = (v: string) => /^\S+@\S+\.\S+$/.test(v);
+  const pwdStrength = (pwd: string) =>
+    (pwd.length >= 6 ? 1 : 0) +
+    (/[A-Z]/.test(pwd) ? 1 : 0) +
+    (/[a-z]/.test(pwd) ? 1 : 0) +
+    (/[0-9]/.test(pwd) ? 1 : 0) +
+    (/[^A-Za-z0-9]/.test(pwd) ? 1 : 0);
+
+  const validateStep = (s: 1 | 2 | 3) => {
+    const e: {[k:string]: string} = {};
+    if (s === 1) {
+      if (!firstName) e.firstName = 'Prénom requis.';
+      if (!lastName)  e.lastName  = 'Nom requis.';
+      if (!phoneRaw)  e.phone     = 'Numéro requis.';
+      if (phoneE164 && !/^\+[1-9]\d{6,14}$/.test(phoneE164)) e.phone = 'Numéro invalide (format international).';
+    }
+    if (s === 2) {
+      if (!email) e.email = 'Email requis.';
+      else if (!isEmail(email)) e.email = "Format d'email invalide.";
+      if (!password) e.password = 'Mot de passe requis.';
+      else if (password.length < 6) e.password = 'Minimum 6 caractères.';
+      if (!confirm) e.confirm = 'Confirmation requise.';
+      else if (password !== confirm) e.confirm = 'Les mots de passe ne correspondent pas.';
+    }
+    if (s === 3) {
+      if (!acceptTerms) e.terms = 'Vous devez accepter les conditions.';
+    }
+    setErrors(e);
+    return Object.keys(e).length === 0;
   };
 
-  const resetErrors = () => {
-    setNameError('');
-    setPhoneError('');
-    setEmailError('');
-    setPasswordError('');
-    setConfirmError('');
-    setGeneralError('');
+  const handleNext = () => {
+    if (validateStep(step)) next();
   };
 
   const handleRegister = async () => {
-    resetErrors();
-
-    let hasError = false;
-
-    if (!name) {
-      setNameError('Le nom est requis.');
-      hasError = true;
-    }
-
-    if (!phone) {
-      setPhoneError('Le numéro de téléphone est requis.');
-      hasError = true;
-    }
-
-    if (!email) {
-      setEmailError("L'adresse email est requise.");
-      hasError = true;
-    } else if (!validateEmail(email)) {
-      setEmailError("Format d'email invalide.");
-      hasError = true;
-    }
-
-    if (!password) {
-      setPasswordError('Le mot de passe est requis.');
-      hasError = true;
-    } else if (password.length < 6) {
-      setPasswordError('Minimum 6 caractères.');
-      hasError = true;
-    }
-
-    if (!confirmPassword) {
-      setConfirmError('Veuillez confirmer votre mot de passe.');
-      hasError = true;
-    } else if (password !== confirmPassword) {
-      setConfirmError('Les mots de passe ne correspondent pas.');
-      hasError = true;
-    }
-
-    if (hasError) return;
+    if (!validateStep(3)) return;
 
     setLoading(true);
-
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
+      const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      await updateProfile(cred.user, { displayName: `${firstName.trim()} ${lastName.trim()}` });
 
-      await updateProfile(user, { displayName: name });
-      const formattedPhone = '+241' + phone.replace(/^0/, '');
-
-      const userData = {
-        uid: user.uid,
-        email,
+      const userDoc = {
+        uid: cred.user.uid,
         type: 'personal',
+        email: email.trim(),
+        name: `${firstName.trim()} ${lastName.trim()}`,
+        phone: phoneE164,
+        newsletter: acceptNews,
         createdAt: new Date(),
-        name,
-        phone: formattedPhone, // ✅ idem ici
       };
 
-      await setDoc(doc(db, 'users', user.uid), userData);
-      
-      await setDoc(doc(db, 'phoneDirectory', user.uid), {
-        uid: user.uid,
-        phone: formattedPhone, // ✅ avec indicatif +241
-        email,
-        name,
+      await setDoc(doc(db, 'users', cred.user.uid), userDoc);
+      await setDoc(doc(db, 'phoneDirectory', cred.user.uid), {
+        uid: cred.user.uid,
+        phone: phoneE164,
+        email: email.trim(),
+        name: `${firstName.trim()} ${lastName.trim()}`,
         createdAt: new Date(),
       });
-      
-      
 
       navigation.navigate('Login');
-    } catch (error: any) {
-      console.warn('Erreur Firebase Register:', error.code);
-      switch (error.code) {
-        case 'auth/email-already-in-use':
-          setEmailError('Cet email est déjà utilisé.');
-          break;
-        case 'auth/invalid-email':
-          setEmailError("L'adresse email est invalide.");
-          break;
-        case 'auth/weak-password':
-          setPasswordError('Mot de passe trop faible (minimum 6 caractères).');
-          break;
-        default:
-          setGeneralError('Une erreur est survenue. Veuillez réessayer.');
-      }
+    } catch (err: any) {
+      const map: {[k: string]: string} = {
+        'auth/email-already-in-use': 'Cet email est déjà utilisé.',
+        'auth/invalid-email': "Adresse email invalide.",
+        'auth/weak-password': 'Mot de passe trop faible.',
+      };
+      setErrors({ general: map[err?.code] || 'Une erreur est survenue. Réessayez.' });
     } finally {
       setLoading(false);
     }
   };
 
+  // ————— UI —————
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      {!accountType ? (
-        <>
-          <Text style={styles.title}>Créer un compte</Text>
-          <Text style={styles.subtitle}>Choisissez le type de compte</Text>
-          <View style={styles.accountTypeContainer}>
-            <TouchableOpacity
-              style={styles.accountTypeButton}
-              onPress={() => setAccountType('personal')}
-            >
-              <Text style={styles.accountTypeText}>Compte Personnel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.accountTypeButton, styles.entrepriseButton]}
-              onPress={() => navigation.navigate('RegisterCompteProScreen')}
-            >
-              <Text style={styles.accountTypeText}>Compte Entreprise</Text>
-            </TouchableOpacity>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={{ alignItems: 'center', marginBottom: 12 }}>
+          <View style={styles.logoWrap}>
+            <Icon name="cellphone" size={28} color="#fff" />
           </View>
-        </>
-      ) : (
-        <>
-          <Text style={styles.title}>Compte Personnel</Text>
+          <Text style={styles.appName}>MyMoneyGest</Text>
+          <Text style={styles.subtitle}>Créez votre compte</Text>
 
-          <TextInput
-            style={styles.input}
-            placeholder="Nom complet"
-            placeholderTextColor="#666"   // ajouté
-            value={name}
-            onChangeText={setName}
-          />
-          {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
+          {/* Steps progress */}
+          <View style={styles.steps}>
+            {[1,2,3].map((i) => (
+              <View key={i} style={[styles.stepBar, i <= step ? styles.stepBarActive : null]} />
+            ))}
+          </View>
+        </View>
 
-          <View style={styles.phoneContainer}>
-  <Text style={styles.prefix}>+241</Text>
-  <TextInput
-  style={styles.phoneInput}
-  placeholder="ex: 060000000"
-  placeholderTextColor="#666"   // ajouté
-  keyboardType="phone-pad"
-  value={phone}
-  onChangeText={(text) => {
-    const cleaned = text.replace(/[^\d]/g, '');
-    setPhone(cleaned);
-  }}
-  maxLength={9}
-/>
-</View>
-{phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
-
-          {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
-
-          <TextInput style={styles.input} placeholder="Email" placeholderTextColor="#666" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-          {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
-
-          <TextInput style={styles.input} placeholder="Mot de passe" placeholderTextColor="#666" value={password} onChangeText={setPassword} secureTextEntry={secure} />
-          {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
-
-          <TextInput style={styles.input} placeholder="Confirmer mot de passe" placeholderTextColor="#666" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry={secure} />
-          {confirmError ? <Text style={styles.errorText}>{confirmError}</Text> : null}
-
-          <TouchableOpacity onPress={() => setSecure(!secure)} style={{ alignSelf: 'flex-end', marginBottom: 15 }}>
-            <Text style={styles.toggle}>{secure ? '👁️‍🗨️' : '🙈'}</Text>
-          </TouchableOpacity>
-
-          {generalError ? <Text style={styles.errorText}>{generalError}</Text> : null}
-
-          {loading ? (
-            <ActivityIndicator size="large" color="#00796B" />
-          ) : (
-            <TouchableOpacity style={styles.button} onPress={handleRegister}>
-              <Text style={styles.buttonText}>Créer un compte</Text>
+        {/* Card */}
+        <View style={styles.card}>
+          {/* Header row (Back + Title) */}
+          <View style={styles.cardHeader}>
+            <TouchableOpacity onPress={step === 1 ? () => navigation.goBack() : prev} style={styles.backBtn}>
+              <Icon name="arrow-left" size={20} color="#0B1024" />
             </TouchableOpacity>
+            <Text style={styles.cardTitle}>
+              {step === 1 ? 'Informations personnelles' : step === 2 ? 'Sécurité du compte' : 'Finalisation'}
+            </Text>
+          </View>
+
+          {/* Icon + Step title */}
+          <View style={{ alignItems: 'center', marginTop: 4, marginBottom: 12 }}>
+            <View style={styles.stepIcon}>
+              <Icon
+                name={step === 1 ? 'account-outline' : step === 2 ? 'lock-outline' : 'check'}
+                size={24}
+                color="#fff"
+              />
+            </View>
+            <Text style={styles.sectionTitle}>
+              {step === 1 ? 'Informations personnelles' : step === 2 ? 'Sécurité du compte' : 'Finalisation'}
+            </Text>
+            <Text style={styles.sectionSub}>Étape {step}/3</Text>
+          </View>
+
+          {/* Step 1 */}
+          {step === 1 && (
+            <View>
+              <View style={styles.row}>
+                <View style={{ flex: 1, marginRight: 6 }}>
+                  <Text style={styles.label}>Prénom</Text>
+                  <TextInput
+                    style={[styles.input, errors.firstName && styles.inputError]}
+                    placeholder="Votre prénom"
+                    placeholderTextColor="#9aa0a6"
+                    value={firstName}
+                    onChangeText={setFirstName}
+                  />
+                  {!!errors.firstName && <Text style={styles.err}>{errors.firstName}</Text>}
+                </View>
+                <View style={{ flex: 1, marginLeft: 6 }}>
+                  <Text style={styles.label}>Nom</Text>
+                  <TextInput
+                    style={[styles.input, errors.lastName && styles.inputError]}
+                    placeholder="Votre nom"
+                    placeholderTextColor="#9aa0a6"
+                    value={lastName}
+                    onChangeText={setLastName}
+                  />
+                  {!!errors.lastName && <Text style={styles.err}>{errors.lastName}</Text>}
+                </View>
+              </View>
+
+              <View style={{ marginTop: 8 }}>
+                <Text style={styles.label}>Numéro de téléphone</Text>
+                <View style={[styles.phoneWrap, errors.phone && styles.inputError]}>
+                  <Text style={styles.prefix}>+241</Text>
+                  <TextInput
+                    style={styles.phoneInput}
+                    placeholder="XX XX XX XX"
+                    placeholderTextColor="#9aa0a6"
+                    keyboardType="phone-pad"
+                    value={phoneRaw}
+                    onChangeText={(t) => setPhoneRaw(t.replace(/[^0-9]/g, ''))}
+                    maxLength={9}
+                  />
+                </View>
+                {!!errors.phone && <Text style={styles.err}>{errors.phone}</Text>}
+                <Text style={styles.hint}>Ce numéro sera utilisé pour vos comptes mobile money</Text>
+              </View>
+
+              <TouchableOpacity style={[styles.primaryBtn, { marginTop: 16 }]} onPress={handleNext}>
+                <Text style={styles.primaryTxt}>Continuer</Text>
+              </TouchableOpacity>
+            </View>
           )}
 
-          <TouchableOpacity onPress={() => setAccountType(null)} style={styles.backButton}>
-            <Text style={styles.backButtonText}>← Retour au choix</Text>
+          {/* Step 2 */}
+          {step === 2 && (
+            <View>
+              <View style={{ marginBottom: 10 }}>
+                <Text style={styles.label}>Adresse email</Text>
+                <TextInput
+                  style={[styles.input, errors.email && styles.inputError]}
+                  placeholder="votre@email.com"
+                  placeholderTextColor="#9aa0a6"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={email}
+                  onChangeText={setEmail}
+                />
+                {!!errors.email && <Text style={styles.err}>{errors.email}</Text>}
+              </View>
+
+              <View style={{ marginBottom: 10 }}>
+                <Text style={styles.label}>Mot de passe</Text>
+                <View style={[styles.passwordWrap, errors.password && styles.inputError]}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    placeholder="Au moins 6 caractères"
+                    placeholderTextColor="#9aa0a6"
+                    secureTextEntry={!showPwd}
+                    value={password}
+                    onChangeText={setPassword}
+                  />
+                  <TouchableOpacity onPress={() => setShowPwd((x) => !x)}>
+                    <Icon name={showPwd ? 'eye-off-outline' : 'eye-outline'} size={22} color="#0B1024" />
+                  </TouchableOpacity>
+                </View>
+                {!!errors.password && <Text style={styles.err}>{errors.password}</Text>}
+
+                {!!password && (
+                  <View style={styles.strengthRow}>
+                    {[1,2,3,4,5].map((lvl) => (
+                      <View key={lvl} style={[styles.strengthBar, pwdStrength(password) >= lvl && styles.strengthOn]} />
+                    ))}
+                    <Text style={styles.strengthLabel}>
+                      {pwdStrength(password) <= 1 ? 'Faible' :
+                       pwdStrength(password) === 2 ? 'Moyen' :
+                       pwdStrength(password) === 3 ? 'Bon'   : 'Très bon'}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              <View>
+                <Text style={styles.label}>Confirmer le mot de passe</Text>
+                <View style={[styles.passwordWrap, errors.confirm && styles.inputError]}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    placeholder="Répétez votre mot de passe"
+                    placeholderTextColor="#9aa0a6"
+                    secureTextEntry={!showConfirm}
+                    value={confirm}
+                    onChangeText={setConfirm}
+                  />
+                  <TouchableOpacity onPress={() => setShowConfirm((x) => !x)}>
+                    <Icon name={showConfirm ? 'eye-off-outline' : 'eye-outline'} size={22} color="#0B1024" />
+                  </TouchableOpacity>
+                </View>
+                {!!errors.confirm && <Text style={styles.err}>{errors.confirm}</Text>}
+              </View>
+
+              <View style={styles.row}>
+                <TouchableOpacity style={[styles.outlineBtn, { flex: 1, marginRight: 6 }]} onPress={prev}>
+                  <Text style={styles.outlineTxt}>Retour</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.primaryBtn, { flex: 1, marginLeft: 6 }]} onPress={handleNext}>
+                  <Text style={styles.primaryTxt}>Continuer</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* Step 3 */}
+          {step === 3 && (
+            <View>
+              <View style={styles.summary}>
+                <Text style={styles.summaryTitle}>Récapitulatif de votre compte</Text>
+                <Text style={styles.summaryText}><Text style={styles.bold}>Nom : </Text>{firstName} {lastName}</Text>
+                <Text style={styles.summaryText}><Text style={styles.bold}>Téléphone : </Text>{phonePretty}</Text>
+                <Text style={styles.summaryText}><Text style={styles.bold}>Email : </Text>{email}</Text>
+              </View>
+
+              <View style={{ marginTop: 8 }}>
+                <TouchableOpacity onPress={() => setAcceptTerms((v) => !v)} style={styles.checkRow}>
+                  <Icon name={acceptTerms ? 'checkbox-marked' : 'checkbox-blank-outline'} size={22} color="#0B1024" />
+                  <Text style={styles.checkText}>
+                    J'accepte les{' '}
+                    <Text style={styles.link} onPress={() => navigation.navigate('MentionsLegales')}>conditions d'utilisation</Text>
+                    {' '}et la{' '}
+                    <Text style={styles.link} onPress={() => navigation.navigate('MentionsLegales')}>politique de confidentialité</Text>
+                  </Text>
+                </TouchableOpacity>
+                {!!errors.terms && <Text style={styles.err}>{errors.terms}</Text>}
+
+                <TouchableOpacity onPress={() => setAcceptNews((v) => !v)} style={styles.checkRow}>
+                  <Icon name={acceptNews ? 'checkbox-marked' : 'checkbox-blank-outline'} size={22} color="#0B1024" />
+                  <Text style={styles.checkText}>Je souhaite recevoir les actualités et offres promotionnelles (optionnel)</Text>
+                </TouchableOpacity>
+              </View>
+
+              {!!errors.general && <Text style={[styles.err, { textAlign: 'center' }]}>{errors.general}</Text>}
+
+              {loading ? (
+                <ActivityIndicator size="large" color="#0B1024" style={{ marginTop: 14 }} />
+              ) : (
+                <View style={styles.row}>
+                  <TouchableOpacity style={[styles.outlineBtn, { flex: 1, marginRight: 6 }]} onPress={prev}>
+                    <Text style={styles.outlineTxt}>Retour</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.primaryBtn, { flex: 1, marginLeft: 6, opacity: acceptTerms ? 1 : 0.7 }]}
+                    onPress={handleRegister}
+                    disabled={!acceptTerms}
+                  >
+                    <Text style={styles.primaryTxt}>Créer mon compte</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+
+        {/* Back to login (comme Figma, en bas) */}
+        {step === 1 && (
+          <TouchableOpacity onPress={() => navigation.navigate('Login')} style={{ alignItems: 'center', marginTop: 16 }}>
+            <Text style={[styles.link, { fontWeight: '700' }]}>Se connecter</Text>
           </TouchableOpacity>
-        </>
-      )}
-    </ScrollView>
+        )}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -245,113 +380,128 @@ export default RegisterScreen;
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    padding: 20,
-    backgroundColor: '#fff',
     justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 40,     // espaces haut/bas pour ne pas coller le header/footer
+    paddingBottom: 40,
+    backgroundColor: '#F4F5F7',
   },
-    errorText: {
-    color: '#D32F2F',
-    fontSize: 14,
-    marginTop: -10,
+
+  // Header
+  logoWrap: {
+    width: 64, height: 64, borderRadius: 16,
+    backgroundColor: '#0B1024',
+    alignItems: 'center', justifyContent: 'center',
     marginBottom: 8,
-    marginLeft: 4,
   },
-  title: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#00796B',
-    textAlign: 'center',
-    marginBottom: 16,
+  appName: { fontSize: 22, fontWeight: '700', color: '#0B1024' },
+  subtitle: { color: '#6b7280', marginTop: 2 },
+
+  steps: { flexDirection: 'row', gap: 6, marginTop: 10 },
+  stepBar: { width: 28, height: 4, borderRadius: 4, backgroundColor: '#E5E7EB' },
+  stepBarActive: { backgroundColor: '#0B1024' },
+
+  // Card
+  card: {
+    marginTop: 16,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
   },
-    phoneContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f9f9f9',
-    borderWidth: 1,
-    borderColor: '#ccc',
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  backBtn: { padding: 4, marginRight: 6 },
+  cardTitle: { fontSize: 18, fontWeight: '700', color: '#0B1024' },
+
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#0B1024', marginTop: 6 },
+  sectionSub: { color: '#6b7280' },
+  stepIcon: {
+    width: 48, height: 48, borderRadius: 12,
+    backgroundColor: '#0B1024', alignItems: 'center', justifyContent: 'center',
+  },
+
+  // Inputs
+  label: { fontSize: 14, fontWeight: '600', color: '#0B1024', marginBottom: 6 },
+  input: {
+    backgroundColor: '#F3F4F6',
     borderRadius: 12,
-    marginBottom: 15,
+    paddingVertical: 14, paddingHorizontal: 14,
+    fontSize: 16, color: '#0B1024',
+    borderWidth: 1, borderColor: '#E5E7EB',
+  },
+  inputError: { borderColor: '#D32F2F' },
+  err: { color: '#D32F2F', fontSize: 13, marginTop: 6, marginLeft: 2, fontWeight: '500' },
+
+  row: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
+
+  phoneWrap: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#F3F4F6', borderRadius: 12,
+    borderWidth: 1, borderColor: '#E5E7EB',
     paddingHorizontal: 12,
   },
-  prefix: {
-    fontSize: 16,
-    color: '#00796B',
-    fontWeight: '600',
-    marginRight: 6,
+  prefix: { color: '#0B1024', fontWeight: '700', marginRight: 8 },
+  phoneInput: { flex: 1, paddingVertical: 14, fontSize: 16, color: '#0B1024' },
+
+  passwordWrap: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB',
+    paddingHorizontal: 12,
   },
-  phoneInput: {
-    flex: 1,
-    fontSize: 16,
-    paddingVertical: 14,
-    color: '#333',
+  passwordInput: { flex: 1, paddingVertical: 14, fontSize: 16, color: '#0B1024' },
+
+  primaryBtn: {
+    backgroundColor: '#0B1024', paddingVertical: 14, borderRadius: 12, alignItems: 'center',
   },
-  subtitle: {
-    fontSize: 18,
-    textAlign: 'center',
-    marginBottom: 30,
-    color: '#004D40',
+  primaryTxt: { color: '#fff', fontWeight: '700', fontSize: 16 },
+
+  outlineBtn: {
+    borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, paddingVertical: 12, alignItems: 'center',
   },
-  accountTypeContainer: {
-    alignItems: 'center',
-  },
-  accountTypeButton: {
-    backgroundColor: '#00796B',
-    paddingVertical: 18,
-    paddingHorizontal: 40,
-    borderRadius: 25,
-    minWidth: 220,
-    alignItems: 'center',
-    marginBottom: 15,
-    shadowColor: '#004D40',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 5,
-  },
-  entrepriseButton: {
-    backgroundColor: '#004D40',
-  },
-  accountTypeText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 18,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    backgroundColor: '#f9f9f9',
+  outlineTxt: { color: '#0B1024', fontWeight: '700' },
+
+  // Summary
+  summary: {
+    backgroundColor: '#F7F8FA',
     borderRadius: 12,
-    padding: 14,
-    marginBottom: 15,
-    fontSize: 16,
+    borderWidth: 1, borderColor: '#EAECEF',
+    padding: 12, marginBottom: 10,
   },
-  button: {
-    backgroundColor: '#00796B',
-    paddingVertical: 16,
-    borderRadius: 25,
+  summaryTitle: { fontWeight: '700', color: '#0B1024', marginBottom: 6 },
+  summaryText: { color: '#374151', marginBottom: 2 },
+  bold: { fontWeight: '700', color: '#0B1024' },
+
+  checkRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 10 },
+  checkText: { color: '#0B1024', flex: 1 },
+  link: { color: '#0B1024', textDecorationLine: 'underline' },
+
+    hint: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 6,
+  },
+
+  strengthRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
-    shadowColor: '#004D40',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 7,
-    elevation: 6,
+    marginTop: 8,
   },
-  buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 18,
+  strengthBar: {
+    width: 20,
+    height: 4,
+    borderRadius: 4,
+    backgroundColor: '#E5E7EB', // barre inactive
+    marginRight: 4,
   },
-  toggle: {
-    fontSize: 22,
+  strengthOn: {
+    backgroundColor: '#10B981', // barre active (vert)
   },
-  backButton: {
-    marginTop: 30,
-    alignItems: 'center',
-  },
-  backButtonText: {
-    color: '#00796B',
+  strengthLabel: {
+    marginLeft: 8,
+    fontSize: 12,
+    color: '#374151',
     fontWeight: '600',
-    fontSize: 16,
   },
 });

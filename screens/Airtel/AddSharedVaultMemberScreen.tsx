@@ -9,7 +9,15 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { collection, doc, getDocs, query, where, setDoc, serverTimestamp } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  getDocs,
+  query,
+  where,
+  setDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
 import { db } from '@/services/firebaseConfig';
 
 const AddSharedVaultMemberScreen = () => {
@@ -21,7 +29,7 @@ const AddSharedVaultMemberScreen = () => {
   const [loading, setLoading] = useState(false);
 
   const handleAddMember = async () => {
-    if (!phone.match(/^\+241\d{9}$/)) {
+    if (!phone.match(/^\+241\d{8}$/)) {
       Alert.alert('Erreur', 'Le numéro doit être au format +241XXXXXXXX');
       return;
     }
@@ -40,16 +48,24 @@ const AddSharedVaultMemberScreen = () => {
 
       const targetUid = snap.docs[0].data().uid;
 
+      // 1. Ajout dans sharedVaults/{vaultId}/members
       const memberRef = doc(db, 'sharedVaults', vaultId, 'members', targetUid);
       await setDoc(memberRef, {
         role: 'editor',
         joinedAt: serverTimestamp(),
       });
 
-      Alert.alert('Succès', 'Membre ajouté au coffre.');
+      // 2. Référence dans users/{uid}/sharedVaultRefs/{vaultId}
+      const refPath = doc(db, 'users', targetUid, 'sharedVaultRefs', vaultId);
+      await setDoc(refPath, {
+        vaultId,
+        addedAt: serverTimestamp(),
+      });
+
+      Alert.alert('✅ Succès', 'Membre ajouté au coffre.');
       navigation.goBack();
     } catch (e) {
-      console.error(e);
+      console.error('Erreur ajout membre :', e);
       Alert.alert('Erreur', "Impossible d'ajouter le membre.");
     } finally {
       setLoading(false);
@@ -63,7 +79,7 @@ const AddSharedVaultMemberScreen = () => {
       <TextInput
         value={phone}
         onChangeText={setPhone}
-        placeholder="+241XXXXXXXXX"
+        placeholder="+241XXXXXXXX"
         style={styles.input}
         keyboardType="phone-pad"
       />
