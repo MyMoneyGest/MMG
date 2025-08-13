@@ -116,7 +116,8 @@ const StatementsScreen = () => {
         <TextInput
           style={themeStyles.input}
           placeholder="Rechercher une année ou intervalle (ex: 2018 ou 2015-2020)"
-          placeholderTextColor={isDarkMode ? '#aaa' : '#666'}
+          //placeholderTextColor={isDarkMode ? '#aaa' : '#666'}
+          placeholderTextColor="#666" 
           keyboardType="numeric"
           maxLength={9}
           value={searchYear}

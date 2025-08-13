@@ -490,6 +490,6 @@ photoInfo: {
   borderRadius: 6,
   textAlign: 'center', // centrage
   alignSelf: 'center', // centre dans le parent
-}
+}  
 
 });

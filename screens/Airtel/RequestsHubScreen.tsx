@@ -22,7 +22,7 @@ export default function RequestsHubScreen() {
 
       <TouchableOpacity
         style={[styles.btn, styles.secondary]}
-        onPress={() => navigation.navigate('RequestsInboxScreen', { filter: 'received' })}
+        onPress={() => navigation.navigate('RequestsInboxScreen', { filter: 'received'})}
       >
         <Text style={styles.btnText}>Historique des demandes</Text>
         <Text style={styles.caption}>(reçues & envoyées)</Text>

@@ -130,7 +130,7 @@ const HomeScreen = () => {
               <Ionicons name="create-outline" size={16} color="#000" />
               <Text style={styles.outlineButtonText}>Modifier profil</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.outlineButton} onPress={() => navigation.navigate('Profile')}> 
+            <TouchableOpacity style={styles.outlineButton} onPress={() => navigation.navigate('SettingsScreen')}> 
               <Ionicons name="settings-outline" size={16} color="#000" />
               <Text style={styles.outlineButtonText}>Paramètres</Text>
             </TouchableOpacity>

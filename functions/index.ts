@@ -21,13 +21,14 @@ export const processTransaction = onDocumentCreated('transactions/{transactionId
   const snap = event.data;
   if (!snap) return;
 
+  const txId = snap.id;
   const txData = snap.data() as {
     senderUid: string;
     receiverUid: string;
     amount: number;
     status?: string;
     note?: string;
-    paymentRequestId?: string; // ✅ support des demandes
+    paymentRequestId?: string;
   };
 
   const transactionRef = snap.ref;
@@ -43,228 +44,265 @@ export const processTransaction = onDocumentCreated('transactions/{transactionId
   const senderAirtelRef   = db.doc(`users/${senderUid}/linkedAccounts/airtel`);
   const receiverAirtelRef = db.doc(`users/${receiverUid}/linkedAccounts/airtel`);
 
-  // Historique Airtel + ActivityFeed
-  const txId = snap.id;
   const senderTxRef   = db.doc(`users/${senderUid}/linkedAccounts/airtel/transactions/${txId}`);
   const receiverTxRef = db.doc(`users/${receiverUid}/linkedAccounts/airtel/transactions/${txId}`);
-
-  // Activity feed
   const senderFeedRef   = db.doc(`users/${senderUid}/activityFeed/${txId}`);
   const receiverFeedRef = db.doc(`users/${receiverUid}/activityFeed/${txId}`);
-
-  // Phone directory (pour noms)
   const senderDirRef   = db.doc(`phoneDirectory/${senderUid}`);
   const receiverDirRef = db.doc(`phoneDirectory/${receiverUid}`);
 
-  // Notifications (ids stables pour éviter les doublons)
   const receiverNotifRef = db.doc(`users/${receiverUid}/notifications/tx_${txId}`);
   const senderNotifRef   = db.doc(`users/${senderUid}/notifications/tx_${txId}_sender`);
 
   const counterRef = db.doc('globalCounters/transactions');
 
-  await db.runTransaction(async (t) => {
-    // Idempotence
-    const freshTx = await t.get(transactionRef);
-    const status = freshTx.get('status');
-    if (status && status !== 'pending') return;
+  let reference: string | null = null;
 
-    const [
-      senderSnap, receiverSnap, counterSnap,
-      senderDirSnap, receiverDirSnap,
-      senderFeedSnap, receiverFeedSnap,
-    ] = await Promise.all([
-      t.get(senderAirtelRef),
-      t.get(receiverAirtelRef),
-      t.get(counterRef),
-      t.get(senderDirRef),
-      t.get(receiverDirRef),
-      t.get(senderFeedRef),
-      t.get(receiverFeedRef),
-    ]);
+  try {
+    await db.runTransaction(async (t) => {
+      // Idempotence
+      const freshTx = await t.get(transactionRef);
+      const status = freshTx.get('status');
+      if (status && status !== 'pending') {
+        console.log(`[processTransaction] ${txId} déjà traité (status=${status}).`);
+        return;
+      }
 
-    if (!senderSnap.exists) {
-      t.update(transactionRef, { status: 'failed', error: 'Compte expéditeur introuvable' });
-      return;
-    }
+      const [
+        senderSnap, receiverSnap, counterSnap,
+        senderDirSnap, receiverDirSnap,
+        senderFeedSnap, receiverFeedSnap,
+      ] = await Promise.all([
+        t.get(senderAirtelRef),
+        t.get(receiverAirtelRef),
+        t.get(counterRef),
+        t.get(senderDirRef),
+        t.get(receiverDirRef),
+        t.get(senderFeedRef),
+        t.get(receiverFeedRef),
+      ]);
 
-    const senderBalance = Number(senderSnap.get('airtelBalance') ?? 0);
-    if (senderBalance < amount) {
-      t.update(transactionRef, { status: 'failed', error: 'Solde insuffisant' });
-      return;
-    }
+      if (!senderSnap.exists) {
+        t.update(transactionRef, { status: 'failed', error: 'Compte expéditeur introuvable' });
+        return;
+      }
 
-    // (Init receiver s'il n'existe pas)
-    if (!receiverSnap.exists) {
-      t.set(receiverAirtelRef, {
-        airtelBalance: 0,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      }, { merge: true });
-    }
+      const senderBalance = Number(senderSnap.get('airtelBalance') ?? 0);
+      if (senderBalance < amount) {
+        t.update(transactionRef, { status: 'failed', error: 'Solde insuffisant' });
+        return;
+      }
 
-    // Débit / Crédit
-    t.update(senderAirtelRef, { airtelBalance: admin.firestore.FieldValue.increment(-amount) });
-    t.update(receiverAirtelRef,{ airtelBalance: admin.firestore.FieldValue.increment(+amount) });
+      // Init receiver si besoin
+      if (!receiverSnap.exists) {
+        t.set(receiverAirtelRef, {
+          airtelBalance: 0,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+      }
 
-    // Compteur + référence
-    let nextVal: number;
-    if (!counterSnap.exists) {
-      nextVal = 1;
-      t.set(counterRef, { value: nextVal, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
-    } else {
-      const current = Number(counterSnap.get('value') ?? 0);
-      nextVal = current + 1;
-      t.update(counterRef, { value: admin.firestore.FieldValue.increment(1), updatedAt: admin.firestore.FieldValue.serverTimestamp() });
-    }
-    const reference = formatRef(nextVal);
+      // Débit/Crédit
+      t.update(senderAirtelRef, { airtelBalance: admin.firestore.FieldValue.increment(-amount) });
+      t.update(receiverAirtelRef,{ airtelBalance: admin.firestore.FieldValue.increment(+amount) });
 
-    // Noms pour feed/historique
-    const senderName =
-      (senderDirSnap.exists && (senderDirSnap.get('name') || senderDirSnap.get('displayName') || senderDirSnap.get('phone'))) || 'Utilisateur';
-    const receiverName =
-      (receiverDirSnap.exists && (receiverDirSnap.get('name') || receiverDirSnap.get('displayName') || receiverDirSnap.get('phone'))) || 'Utilisateur';
+      // Compteur + référence
+      let nextVal: number;
+      if (!counterSnap.exists) {
+        nextVal = 1;
+        t.set(counterRef, { value: nextVal, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+      } else {
+        const current = Number(counterSnap.get('value') ?? 0);
+        nextVal = current + 1;
+        t.update(counterRef, { value: admin.firestore.FieldValue.increment(1), updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+      }
+      reference = formatRef(nextVal);
 
-    // Historique Airtel (sous-collections)
-    t.set(senderTxRef, {
-      mainTransactionId: txId,
-      reference,
-      direction: 'debit',
-      type: 'virement_émis',
-      to: receiverUid,
-      toName: receiverName,
-      amount,
-      note: txData?.note ?? '',
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
-    }, { merge: true });
+      // Noms lisibles
+      const senderName =
+        (senderDirSnap.exists && (senderDirSnap.get('name') || senderDirSnap.get('displayName') || senderDirSnap.get('phone'))) || 'Utilisateur';
+      const receiverName =
+        (receiverDirSnap.exists && (receiverDirSnap.get('name') || receiverDirSnap.get('displayName') || receiverDirSnap.get('phone'))) || 'Utilisateur';
 
-    t.set(receiverTxRef, {
-      mainTransactionId: txId,
-      reference,
-      direction: 'credit',
-      type: 'virement_reçu',
-      from: senderUid,
-      fromName: senderName,
-      amount,
-      note: txData?.note ?? '',
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
-    }, { merge: true });
-
-    // ActivityFeed — UNIFIÉ
-    if (!senderFeedSnap.exists) {
-      t.set(senderFeedRef, {
-        source: 'airtel',
-        kind: 'transfer_out',
-        direction: 'debit', // point de vue sender
+      // Historique Airtel
+      t.set(senderTxRef, {
+        mainTransactionId: txId,
+        reference,
+        direction: 'debit',
+        type: 'virement_émis',
+        to: receiverUid,
+        toName: receiverName,
         amount,
         note: txData?.note ?? '',
-        reference,
-        mainTransactionId: txId,
-        counterpartyUid: receiverUid,
-        counterpartyName: receiverName,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      });
-    }
-    if (!receiverFeedSnap.exists) {
-      t.set(receiverFeedRef, {
-        source: 'airtel',
-        kind: 'transfer_in',
-        direction: 'credit', // point de vue receiver
+      }, { merge: true });
+
+      t.set(receiverTxRef, {
+        mainTransactionId: txId,
+        reference,
+        direction: 'credit',
+        type: 'virement_reçu',
+        from: senderUid,
+        fromName: senderName,
         amount,
         note: txData?.note ?? '',
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+
+      // Activity feed
+      if (!senderFeedSnap.exists) {
+        t.set(senderFeedRef, {
+          source: 'airtel',
+          kind: 'transfer_out',
+          direction: 'debit',
+          amount,
+          note: txData?.note ?? '',
+          reference,
+          mainTransactionId: txId,
+          counterpartyUid: receiverUid,
+          counterpartyName: receiverName,
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+      if (!receiverFeedSnap.exists) {
+        t.set(receiverFeedRef, {
+          source: 'airtel',
+          kind: 'transfer_in',
+          direction: 'credit',
+          amount,
+          note: txData?.note ?? '',
+          reference,
+          mainTransactionId: txId,
+          counterpartyUid: senderUid,
+          counterpartyName: senderName,
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+
+      // Notifs virement
+      t.set(receiverNotifRef, {
+        title: 'Virement reçu',
+        message: `${senderName} vous a envoyé ${amount.toLocaleString()} FCFA. Réf: ${reference}`,
+        kind: 'transfer_in',
+        txId,
         reference,
-        mainTransactionId: txId,
+        amount,
         counterpartyUid: senderUid,
         counterpartyName: senderName,
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        date: admin.firestore.FieldValue.serverTimestamp(),
+        opened: false,
+        read: false,
       });
-    }
+      t.set(senderNotifRef, {
+        title: 'Virement envoyé',
+        message: `Vous avez envoyé ${amount.toLocaleString()} FCFA à ${receiverName}. Réf: ${reference}`,
+        kind: 'transfer_out',
+        txId,
+        reference,
+        amount,
+        counterpartyUid: receiverUid,
+        counterpartyName: receiverName,
+        date: admin.firestore.FieldValue.serverTimestamp(),
+        opened: false,
+        read: false,
+      });
 
-    // 🔔 Notifications
-    t.set(receiverNotifRef, {
-      title: 'Virement reçu',
-      message: `${senderName} vous a envoyé ${amount.toLocaleString()} FCFA. Réf: ${reference}`,
-      kind: 'transfer_in',
-      txId,
-      reference,
-      amount,
-      counterpartyUid: senderUid,
-      counterpartyName: senderName,
-      date: admin.firestore.FieldValue.serverTimestamp(),
-      opened: false,
-      read: false,
-    });
-    // (Optionnel) notif expéditeur
-    t.set(senderNotifRef, {
-      title: 'Virement envoyé',
-      message: `Vous avez envoyé ${amount.toLocaleString()} FCFA à ${receiverName}. Réf: ${reference}`,
-      kind: 'transfer_out',
-      txId,
-      reference,
-      amount,
-      counterpartyUid: receiverUid,
-      counterpartyName: receiverName,
-      date: admin.firestore.FieldValue.serverTimestamp(),
-      opened: false,
-      read: false,
+      // Finalisation de la transaction globale
+      t.update(transactionRef, {
+        status: 'success',
+        reference,
+        processedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
     });
 
-    // Finalisation globale
-    t.update(transactionRef, {
-      status: 'success',
-      reference,
-      processedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    /** ✅ Si la transaction correspond à une demande de paiement, on la marque payée */
-    const reqId = freshTx.get('paymentRequestId') || txData.paymentRequestId;
-    if (reqId) {
-      const reqRef = db.doc(`paymentRequests/${reqId}`);
-      const reqSnap = await t.get(reqRef);
-      if (reqSnap.exists) {
-        const r = reqSnap.data() as any;
-        // Sécurité : la partie payeuse est la target, le receveur est le requester
-        if (r.status === 'pending' && r.targetUid === senderUid && r.requesterUid === receiverUid) {
-          t.update(reqRef, {
-            status: 'paid',
-            paidAt: admin.firestore.FieldValue.serverTimestamp(),
-            paidByTx: txId,
-            reference,
-          });
-
-          // Notifications de confirmation
-          const notifTarget   = db.doc(`users/${senderUid}/notifications/req_${reqId}_paid_out`);
-          const notifRequester= db.doc(`users/${receiverUid}/notifications/req_${reqId}_paid_in`);
-
-          t.set(notifTarget, {
-            title: 'Demande payée',
-            message: `Vous avez payé ${Number(amount).toLocaleString()} FCFA à ${receiverName}. Réf: ${reference}`,
-            kind: 'request_paid_out',
-            paymentRequestId: reqId,
-            reference,
-            amount,
-            date: admin.firestore.FieldValue.serverTimestamp(),
-            opened: false,
-            read: false,
-          });
-          t.set(notifRequester, {
-            title: 'Demande réglée',
-            message: `${senderName} a payé ${Number(amount).toLocaleString()} FCFA. Réf: ${reference}`,
-            kind: 'request_paid_in',
-            paymentRequestId: reqId,
-            reference,
-            amount,
-            date: admin.firestore.FieldValue.serverTimestamp(),
-            opened: false,
-            read: false,
-          });
-        }
-      }
-    }
-  }).catch(async (err) => {
+  } catch (err: any) {
     console.error('Erreur runTransaction processTransaction:', err);
     try {
       await transactionRef.update({ status: 'failed', error: String(err?.message || 'Erreur serveur') });
     } catch {}
-  });
+    return;
+  }
+
+  // ==== ⬇️⬇️ NOUVEAU : lier la demande de paiement APRÈS réussite du virement ⬇️⬇️ ====
+  try {
+    const reqId = txData.paymentRequestId;
+    if (!reqId) {
+      console.log(`[processTransaction] ${txId}: pas de paymentRequestId, rien à lier.`);
+      return;
+    }
+
+    console.log(`[processTransaction] ${txId}: liaison avec paymentRequests/${reqId} …`);
+
+    const reqRef  = db.doc(`paymentRequests/${reqId}`);
+    const reqSnap = await reqRef.get();
+
+    if (!reqSnap.exists) {
+      console.warn(`[processTransaction] Demande ${reqId} introuvable.`);
+      return;
+    }
+
+    const r = reqSnap.data() as any;
+    // Sécurité : la partie payeuse est la target, le receveur est le requester
+    if (r.status !== 'pending') {
+      console.log(`[processTransaction] Demande ${reqId} déjà ${r.status}.`);
+      return;
+    }
+    if (r.targetUid !== senderUid || r.requesterUid !== receiverUid) {
+      console.warn(`[processTransaction] Incohérence R2P : target=${r.targetUid} vs sender=${senderUid} ; requester=${r.requesterUid} vs receiver=${receiverUid}`);
+      return;
+    }
+
+    await reqRef.update({
+      status: 'paid',
+      paidAt: admin.firestore.FieldValue.serverTimestamp(),
+      paidByTx: txId,
+      reference: reference ?? null,
+    });
+
+    const acceptedDecRef = db.doc(`paymentRequests/${reqId}/decisions/accepted_${txId}`);
+    await acceptedDecRef.set({
+      actorUid: senderUid, // la personne qui a payé (cible de la demande)
+      decision: 'accepted',
+      byTx: txId,
+      reference: reference ?? null,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    const amountStr = Number(r.amount || amount).toLocaleString();
+
+    // Notifs de confirmation
+    const notifTarget    = db.doc(`users/${senderUid}/notifications/req_${reqId}_paid_out`);
+    const notifRequester = db.doc(`users/${receiverUid}/notifications/req_${reqId}_paid_in`);
+
+    await Promise.all([
+      notifTarget.set({
+        title: 'Demande payée',
+        message: `Vous avez payé ${amountStr} FCFA.`,
+        kind: 'request_paid_out',
+        paymentRequestId: reqId,
+        reference: reference ?? null,
+        amount: r.amount ?? amount,
+        date: admin.firestore.FieldValue.serverTimestamp(),
+        opened: false,
+        read: false,
+      }),
+      notifRequester.set({
+        title: 'Demande réglée',
+        message: `Votre demande de ${amountStr} FCFA a été réglée.`,
+        kind: 'request_paid_in',
+        paymentRequestId: reqId,
+        reference: reference ?? null,
+        amount: r.amount ?? amount,
+        date: admin.firestore.FieldValue.serverTimestamp(),
+        opened: false,
+        read: false,
+      }),
+    ]);
+
+    console.log(`[processTransaction] Demande ${reqId} marquée paid.`);
+
+  } catch (e) {
+    console.error(`[processTransaction] Erreur liaison R2P:`, e);
+  }
 });
 
 /** ==================================================================

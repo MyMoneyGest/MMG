@@ -65,6 +65,9 @@ import StatementsScreen from '../screens/Airtel/StatementsScreen';
 import AirtelRechargeScreen from '../screens/Airtel/AirtelRechargeScreen';
 import AirtelWithdrawScreen from '../screens/Airtel/AirtelWithdrawScreen';
 import AddSharedVaultMoneyScreen from '../screens/Airtel/AddSharedVaultMoneyScreen';
+import CreatePersonalVaultScreen from '../screens/Airtel/CreatePersonalVaultScreen';
+import SettingsScreen from '../screens/Airtel/SettingsScreen';
+import OperationsScreen from '../screens/Airtel/OperationsScreen';
 import PolitiqueConfidentialiteScreen from '../screens/Authentification/PolitiqueConfidentialiteScreen';
 import AirtelSupportScreen from '../screens/Airtel/AirtelSupportScreen';
 
@@ -104,6 +107,7 @@ export type RootStackParamList = {
   SharedVaultDetailScreen : {vaultId: string };
   AddSharedVaultMemberScreen : { vaultId: string};
   CreateSharedVaultScreen : undefined;
+  CreatePersonalVaultScreen : undefined;
   LinkAirtelScreen: undefined;
   AirtelSendMoneyScreen : undefined;
   AirtelSupportScreen : undefined;
@@ -133,6 +137,7 @@ export type RootStackParamList = {
   };
 
   GestionEntrepriseScreen : undefined;
+  SettingsScreen : undefined;
   EnterSendAmountScreen : undefined;
   RequestPaymentScreen : undefined;
   RequestsInboxScreen: { filter?: 'received' | 'sent'; highlightId?: string } | undefined;
@@ -172,6 +177,7 @@ export type RootStackParamList = {
   AirtelMoneyEntrepriseDetailsScreen: {companyId: string };
   MoovMoneyEntrepriseScreen: { companyId: string };
   MoovMoneyEntrepriseDetailsScreen: { companyId: string };
+  OperationsScreen : undefined ;
 
 };
 
@@ -197,7 +203,10 @@ const AppNavigator = ({ initialRoute }: AppNavigatorProps) => {
   return (
     <Stack.Navigator initialRouteName={initialRoute ?? 'Login'}>
       <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="OperationsScreen" component={OperationsScreen} />
       <Stack.Screen name="SharedVaultsScreen" component={SharedVaultsScreen}options={{ title: 'Coffres partagés' }}/>
+      <Stack.Screen name="CreatePersonalVaultScreen" component={CreatePersonalVaultScreen}/>
+      <Stack.Screen name="SettingsScreen" component={SettingsScreen}options={{ title: 'Paramètres' }}/>
       <Stack.Screen name="AddSharedVaultMoneyScreen" component={AddSharedVaultMoneyScreen}options={{ title: 'Ajouter de l argent aux coffres partagés' }}/>
       <Stack.Screen name="CreateSharedVaultScreen" component={CreateSharedVaultScreen} options={{ title: 'Créer coffre partagé' }}/>
       <Stack.Screen name="SharedVaultDetailScreen" component={SharedVaultDetailScreen} options={{ title: 'Détail du coffre partagé' }}/>
