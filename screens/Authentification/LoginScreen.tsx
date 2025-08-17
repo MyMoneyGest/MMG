@@ -21,6 +21,8 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '../../services/firebaseConfig';
 import { getDoc, doc } from 'firebase/firestore';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import COLORS from '../../constants/colors';
+
 
 type LoginScreenProp = NativeStackNavigationProp<RootStackParamList, 'Login'>;
 
@@ -165,11 +167,14 @@ const LoginScreen = () => {
           showsVerticalScrollIndicator={false}
         >
           <View style={{ alignItems: 'center', marginBottom: 16 }}>
-            <View style={styles.logoWrap}>
-              <Icon name="cellphone" size={28} color="#fff" />
+            <View style={{ alignItems: 'center', marginBottom: 16 }}>
+              <Image
+                source={require('../../assets/Logo_web_mmg.png')}
+                style={{ width: 90, height: 90, resizeMode: 'contain', marginBottom: 8 }}
+              />
+              <Text style={styles.appName}>MyMoneyGest</Text>
+              <Text style={styles.subtitle}>Gérez vos comptes en toute sécurité</Text>
             </View>
-            <Text style={styles.appName}>MyMoneyGest</Text>
-            <Text style={styles.subtitle}>Gérez vos comptes en toute sécurité</Text>
           </View>
 
           {/* Card */}
@@ -309,7 +314,7 @@ export default LoginScreen;
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F4F5F7', // fond clair comme Figma
+    backgroundColor: COLORS.background,
   },
   inner: {
     flex: 1,
@@ -320,17 +325,23 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 16,
-    backgroundColor: '#0B1024', // primary sombre
+    backgroundColor: COLORS.text,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
   },
-  appName: { fontSize: 22, fontWeight: '700', color: '#0B1024' },
-  subtitle: { color: '#6b7280', marginTop: 2 },
-
+  appName: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  subtitle: {
+    color: COLORS.muted,
+    marginTop: 2,
+  },
   card: {
     marginTop: 16,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.surface,
     borderRadius: 16,
     padding: 16,
     shadowColor: '#000',
@@ -339,8 +350,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 3,
   },
-  cardTitle: { fontSize: 18, fontWeight: '700', marginBottom: 12, color: '#0B1024' },
-
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 12,
+    color: COLORS.text,
+  },
   toggleRow: {
     flexDirection: 'row',
     gap: 8,
@@ -350,95 +365,130 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: COLORS.border,
     paddingVertical: 10,
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.surface,
   },
   toggleBtnActive: {
-    backgroundColor: '#0B1024',
-    borderColor: '#0B1024',
+    backgroundColor: COLORS.text,
+    borderColor: COLORS.text,
   },
-  toggleTxt: { color: '#0B1024', fontWeight: '600' },
-  toggleTxtActive: { color: '#fff', fontWeight: '700' },
-
-  inputGroup: { marginBottom: 12 },
-  label: { fontSize: 14, fontWeight: '600', color: '#0B1024', marginBottom: 6 },
+  toggleTxt: {
+    color: COLORS.text,
+    fontWeight: '600',
+  },
+  toggleTxtActive: {
+    color: COLORS.surface,
+    fontWeight: '700',
+  },
+  inputGroup: {
+    marginBottom: 12,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 6,
+  },
   input: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: COLORS.inputBackground,
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 14,
     fontSize: 16,
-    color: '#0B1024',
+    color: COLORS.text,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.border,
   },
-  inputError: { borderColor: '#D32F2F' },
-
+  inputError: {
+    borderColor: COLORS.error,
+  },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: COLORS.inputBackground,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.border,
     paddingHorizontal: 14,
   },
-  passwordInput: { flex: 1, paddingVertical: 14, fontSize: 16, color: '#0B1024' },
-
+  passwordInput: {
+    flex: 1,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: COLORS.text,
+  },
   primaryBtn: {
-    backgroundColor: '#0B1024',
+    backgroundColor: COLORS.primary,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
   },
-  primaryTxt: { color: '#fff', fontWeight: '700', fontSize: 16 },
-
+  primaryTxt: {
+    color: COLORS.surface,
+    fontWeight: '700',
+    fontSize: 16,
+  },
   divider: {
     height: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: COLORS.border,
     marginVertical: 12,
   },
-
   outlineBtn: {
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.border,
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
   },
-  outlineTxt: { color: '#0B1024', fontWeight: '600' },
-
-  link: { color: '#0B1024', fontWeight: '700', textDecorationLine: 'underline' },
-
+  outlineTxt: {
+    color: COLORS.text,
+    fontWeight: '600',
+  },
+  link: {
+    color: COLORS.text,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+  },
   cardMuted: {
     marginTop: 12,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.surface,
     borderRadius: 16,
     padding: 14,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#F1F2F4',
+    borderColor: COLORS.border,
   },
-  muted: { color: '#6b7280', marginBottom: 10 },
-
+  muted: {
+    color: COLORS.muted,
+    marginBottom: 10,
+  },
   ghostBtn: {
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.border,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 16,
   },
-  ghostTxt: { color: '#0B1024', fontWeight: '700' },
-
-  footer: { color: '#6b7280', fontSize: 12 },
-  linkXs: { color: '#0B1024', fontSize: 12, textDecorationLine: 'underline', fontWeight: '700' },
-
+  ghostTxt: {
+    color: COLORS.text,
+    fontWeight: '700',
+  },
+  footer: {
+    color: COLORS.muted,
+    fontSize: 12,
+  },
+  linkXs: {
+    color: COLORS.text,
+    fontSize: 12,
+    textDecorationLine: 'underline',
+    fontWeight: '700',
+  },
   errorText: {
-    color: '#D32F2F',
+    color: COLORS.error,
     fontSize: 13,
     marginTop: 6,
     marginLeft: 2,

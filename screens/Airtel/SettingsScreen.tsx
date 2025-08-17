@@ -262,7 +262,7 @@ export default function SettingsScreen({ navigation, route }: any) {
           <CardTitle icon="phone-portrait-outline" title="Actions rapides" />
           <ActionRow icon="card-outline" label="Gérer les comptes liés" onPress={() => {}} />
           <ActionRow icon="eye-outline" label="Historique de connexion" onPress={() => {}} />
-          <ActionRow icon="help-circle-outline" label="Centre d'aide" onPress={() => {}} />
+          <ActionRow icon="help-circle-outline" label="Centre d'aide" onPress={() => navigation.navigate('ChatBotScreen')} />
         </Card>
 
         {/* ----------------- Version + déconnexion ----------------- */}

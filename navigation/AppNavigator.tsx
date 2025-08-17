@@ -7,6 +7,7 @@ import RegisterCompteProScreen from '../screens/Authentification/RegisterCompteP
 import HomeScreen from '../screens/Home/HomeScreen';
 import ForgotPasswordScreen from '../screens/Authentification/ForgotPasswordScreen';
 import ChangePasswordScreen from '../screens/Authentification/ChangePasswordScreen';
+import SetPinScreen from '../screens/Authentification/SetPinScreen';
 import AccountsScreen from '../screens/accounts/AccountsScreen';
 import AirtelMoneyScreen from '../screens/Airtel/AirtelMoneyScreen';
 import LibertisScreen from '../screens/Libertis/LibertisScreen';
@@ -68,6 +69,7 @@ import AddSharedVaultMoneyScreen from '../screens/Airtel/AddSharedVaultMoneyScre
 import CreatePersonalVaultScreen from '../screens/Airtel/CreatePersonalVaultScreen';
 import SettingsScreen from '../screens/Airtel/SettingsScreen';
 import OperationsScreen from '../screens/Airtel/OperationsScreen';
+import ChatBotScreen from '../screens/Others/ChatBotScreen';
 import PolitiqueConfidentialiteScreen from '../screens/Authentification/PolitiqueConfidentialiteScreen';
 import AirtelSupportScreen from '../screens/Airtel/AirtelSupportScreen';
 
@@ -177,7 +179,9 @@ export type RootStackParamList = {
   AirtelMoneyEntrepriseDetailsScreen: {companyId: string };
   MoovMoneyEntrepriseScreen: { companyId: string };
   MoovMoneyEntrepriseDetailsScreen: { companyId: string };
+  ChatBotScreen: undefined;
   OperationsScreen : undefined ;
+  SetPinScreen : undefined;
 
 };
 
@@ -210,6 +214,7 @@ const AppNavigator = ({ initialRoute }: AppNavigatorProps) => {
       <Stack.Screen name="AddSharedVaultMoneyScreen" component={AddSharedVaultMoneyScreen}options={{ title: 'Ajouter de l argent aux coffres partagés' }}/>
       <Stack.Screen name="CreateSharedVaultScreen" component={CreateSharedVaultScreen} options={{ title: 'Créer coffre partagé' }}/>
       <Stack.Screen name="SharedVaultDetailScreen" component={SharedVaultDetailScreen} options={{ title: 'Détail du coffre partagé' }}/>
+      <Stack.Screen name="ChatBotScreen" component={ChatBotScreen} />
       <Stack.Screen name="AddSharedVaultMemberScreen" component={AddSharedVaultMemberScreen} options={{ title: 'Ajouter un membre' }}/>     
       <Stack.Screen name="AirtelRechargeScreen" component={AirtelRechargeScreen} />
       <Stack.Screen name="MonthlyActivityScreen" component={MonthlyActivityScreen} />
@@ -259,6 +264,7 @@ const AppNavigator = ({ initialRoute }: AppNavigatorProps) => {
       <Stack.Screen name="DevisScreen" component={DevisScreen} />
       <Stack.Screen name="ClientsScreen" component={ClientsScreen} />
       <Stack.Screen name="AjouterCollaborateurScreen" component={AjouterCollaborateurScreen} />
+      <Stack.Screen name="SetPinScreen" component={SetPinScreen} />
       <Stack.Screen name="EntrepriseInfoScreen" component={EntrepriseInfoScreen} />
       <Stack.Screen name="CollaboratorsScreen" component={CollaboratorsScreen} />
       <Stack.Screen name="CompanyAccountScreen" component={CompanyAccountScreen} />

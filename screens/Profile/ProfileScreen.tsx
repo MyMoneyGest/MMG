@@ -1,5 +1,5 @@
-// screens/ProfileScreen.tsx
-import React, { useState } from 'react';
+// ✅ ProfileScreen.tsx (corrigé, complet avec upload vers Firebase Storage)
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Image, ScrollView,
   TextInput, ActivityIndicator, SafeAreaView, Platform
@@ -7,54 +7,69 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
+import { auth, db, storage } from '../../services/firebaseConfig';
+import { onAuthStateChanged, updatePassword } from 'firebase/auth';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import uuid from 'react-native-uuid';
 
 const COLORS = {
-  bg: '#f9fafb',
-  header: '#0f172a',
-  white: '#ffffff',
-  muted: '#6b7280',
-  border: '#e5e7eb',
-  border2: '#d1d5db',
-  text: '#000000',
-  primary: '#0f172a',
-  progress: '#0f172a',
-  success: '#22c55e',
-  slate: '#cbd5e1',
+  bg: '#f9fafb', header: '#0f172a', white: '#ffffff',
+  muted: '#6b7280', border: '#e5e7eb', border2: '#d1d5db',
+  text: '#000000', primary: '#0f172a', progress: '#0f172a',
+  success: '#22c55e', slate: '#cbd5e1'
 };
 
 export default function ProfileScreen({ navigation }: any) {
   const [loading, setLoading] = useState(false);
-
-  // Données profil (branche-les à Firestore/Auth si besoin)
-  const [name, setName] = useState('Jean Kouassi');
-  const [email] = useState('jean.kouassi@email.com');
-  const [phone, setPhone] = useState('+241 06 00 00 00');
-  const [address, setAddress] = useState('Libreville, Gabon');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
   const [birthDate, setBirthDate] = useState<Date | null>(null);
   const [showPicker, setShowPicker] = useState(false);
-  const [imageUri, setImageUri] = useState<string | null>('https://randomuser.me/api/portraits/men/75.jpg');
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string>('');
 
-  // Sécurité (changement mdp inline)
   const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword]         = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPass, setShowPass] = useState({ current:false, next:false, confirm:false });
+  const [showPass, setShowPass] = useState({ current: false, next: false, confirm: false });
+  const [errors, setErrors] = useState<{ [k: string]: string }>({});
 
-  // Erreurs inline
-  const [errors, setErrors] = useState<{[k:string]: string}>({});
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setUserId(user.uid);
+        setEmail(user.email || '');
+        try {
+          const snap = await getDoc(doc(db, 'users', user.uid));
+          if (snap.exists()) {
+            const data = snap.data();
+            setName(data.fullName || '');
+            setPhone(data.phone || '');
+            setAddress(data.address || '');
+            if (data.birthDate) setBirthDate(new Date(data.birthDate));
+            setImageUri(data.photoURL || null);
+          }
+        } catch (e) {
+          console.log('Erreur chargement profil :', e);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   const validate = () => {
-    const e: {[k:string]: string} = {};
+    const e: { [k: string]: string } = {};
     if (!name.trim()) e.name = 'Le nom est requis';
     if (!phone.startsWith('+241')) e.phone = 'Le numéro doit commencer par +241';
     if (!address.trim()) e.address = 'Adresse requise';
-
     if (newPassword || confirmPassword) {
       if (!currentPassword) e.currentPassword = 'Mot de passe actuel requis';
       if ((newPassword || '').length < 6) e.newPassword = 'Min. 6 caractères';
       if (newPassword !== confirmPassword) e.confirmPassword = 'Les mots de passe ne correspondent pas';
     }
-
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -63,43 +78,60 @@ export default function ProfileScreen({ navigation }: any) {
     if (!validate()) return;
     setLoading(true);
     try {
-      // TODO: branche ici la mise à jour Firestore + updatePassword si nécessaire
-      setTimeout(() => {
-        setLoading(false);
-        alert('Modifications enregistrées ✅');
-      }, 800);
-    } catch {
+      const userRef = doc(db, 'users', userId);
+      let photoURL = imageUri;
+      // 🔼 Upload image si nouvelle URI locale
+      if (imageUri && imageUri.startsWith('file://')) {
+        const response = await fetch(imageUri);
+        const blob = await response.blob();
+        const imageRef = ref(storage, `profilePictures/${userId}_${uuid.v4()}`);
+        await uploadBytes(imageRef, blob);
+        photoURL = await getDownloadURL(imageRef);
+        setImageUri(photoURL);
+      }
+
+      await updateDoc(userRef, {
+        fullName: name.trim(),
+        phone: phone.trim(),
+        address: address.trim(),
+        birthDate: birthDate?.toISOString() || null,
+        photoURL,
+      });
+
+      if (newPassword) {
+        const user = auth.currentUser;
+        if (user) await updatePassword(user, newPassword);
+      }
+      alert('Modifications enregistrées ✅');
+    } catch (e) {
+      console.error(e);
+      alert("Une erreur est survenue.");
+    } finally {
       setLoading(false);
-      alert('Une erreur est survenue.');
     }
   };
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      alert("Autorisez l'accès aux photos pour changer l'avatar.");
+      alert("Autorisez l'accès aux photos.");
       return;
     }
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1,1],
-      quality: 0.9,
-    });
+    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.9 });
     if (!res.canceled && res.assets?.length) {
       setImageUri(res.assets[0].uri);
-      // TODO: upload Storage + maj Firestore
     }
   };
 
   const securityLevel = 85;
-  const checks = [
-    { label: 'Identité vérifiée', completed: true },
-    { label: 'Numéro confirmé', completed: true },
-    { label: 'Email validé', completed: true },
-    { label: 'Code PIN défini', completed: true },
-    { label: 'Authentification 2FA', completed: false },
-  ];
+
+const checks = [
+  { label: 'Identité vérifiée', completed: true },
+  { label: 'Numéro confirmé', completed: true },
+  { label: 'Email validé', completed: true },
+  { label: 'Code PIN défini', completed: true },
+  { label: 'Authentification 2FA', completed: false },
+];
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.bg }}>
@@ -282,7 +314,7 @@ export default function ProfileScreen({ navigation }: any) {
                 <View style={[styles.progressFill, { width: `${securityLevel}%` }]} />
               </View>
               <View style={{ marginTop: 12 }}>
-                {checks.map((check, i) => (
+                {checks.map((check: { label: string; completed: boolean }, i: number) => (
                   <View key={i} style={styles.checkRow}>
                     <Ionicons
                       name={check.completed ? 'checkmark-circle' : 'ellipse-outline'}
